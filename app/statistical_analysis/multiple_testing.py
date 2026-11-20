@@ -1,50 +1,35 @@
-
+import numpy as np
 import pandas as pd
 from statsmodels.stats.multitest import multipletests
 
 
-def correct_p_values(results, p_value_column="P-value"):
+def correct_p_values(results, p_value_column="P-value", alpha=0.05):
     """
-    Apply Bonferroni and Benjamini-Hochberg corrections
-    to a collection of hypothesis tests.
+    Add Bonferroni and Benjamini-Hochberg adjusted p-values and
+    significance decisions to a table of hypothesis tests.
 
-    Returns a copy of the original results with adjusted
-    p-values and significance decisions.
+    Rows with a missing p-value are left uncorrected (NaN, not significant)
+    and are not counted toward the number of tests.
     """
-
-    if results.empty:
-        return results.copy()
-
     if p_value_column not in results.columns:
-        raise ValueError(
-            f"Column '{p_value_column}' was not found."
-        )
+        raise ValueError(f"Column '{p_value_column}' was not found.")
 
-    corrected_results = results.copy()
+    corrected = results.copy()
 
-    # Extract the original p-values
-    p_values = corrected_results[p_value_column].to_numpy()
+    methods = {"Bonferroni": "bonferroni", "BH": "fdr_bh"}
+    for label in methods:
+        corrected[f"{label} P-value"] = np.nan
+        corrected[f"{label} Significant"] = False
 
-    # Bonferroni correction
-    bonferroni = multipletests(
-        p_values,
-        alpha=0.05,
-        method="bonferroni"
-    )
+    valid = corrected[p_value_column].notna()
+    if not valid.any():
+        return corrected
 
-    # Benjamini-Hochberg correction
-    benjamini_hochberg = multipletests(
-        p_values,
-        alpha=0.05,
-        method="fdr_bh"
-    )
+    p_values = corrected.loc[valid, p_value_column].to_numpy(dtype=float)
 
-    # Store adjusted p-values
-    corrected_results["Bonferroni P-value"] = bonferroni[1]
-    corrected_results["BH P-value"] = benjamini_hochberg[1]
+    for label, method in methods.items():
+        significant, adjusted, _, _ = multipletests(p_values, alpha=alpha, method=method)
+        corrected.loc[valid, f"{label} P-value"] = adjusted
+        corrected.loc[valid, f"{label} Significant"] = significant
 
-    # Store significance decisions
-    corrected_results["Bonferroni Significant"] = bonferroni[0]
-    corrected_results["BH Significant"] = benjamini_hochberg[0]
-
-    return corrected_results
+    return corrected

@@ -1,122 +1,97 @@
-
-import pandas as pd
 import numpy as np
+import pandas as pd
 from scipy.stats import chi2_contingency
 
 
 def analyze_categorical_relationship(df, feature, target):
     """
-    Analyze the relationship between two categorical variables
-    using a chi-square test of independence and Cramer's V.
+    Chi-square test of independence plus Cramer's V for two categorical
+    variables. Missing values must already be real NaN (see cleaner.py).
     """
+    for column in (feature, target):
+        if column not in df.columns:
+            raise ValueError(f"Column not found: {column}")
 
-    # Make a copy containing only the two variables
-    data = df[[feature, target]].copy()
+    data = df[[feature, target]].dropna()
+    contingency_table = pd.crosstab(data[feature], data[target])
 
-    # The Adult dataset uses '?' to represent unknown values.
-    # Convert these to missing values before conducting the test.
-    data = data.replace("?", np.nan)
-
-    # Remove observations with missing values in either variable
-    data = data.dropna()
-
-    # Create a contingency table
-    contingency_table = pd.crosstab(
-        data[feature],
-        data[target]
-    )
-
-    # A chi-square test requires at least two categories per variable
     if contingency_table.shape[0] < 2 or contingency_table.shape[1] < 2:
         raise ValueError("Both variables must have at least two categories.")
 
-    # Perform the chi-square test
-    chi2, p_value, degrees_of_freedom, expected = chi2_contingency(
-        contingency_table
-    )
+    chi2, p_value, degrees_of_freedom, expected = chi2_contingency(contingency_table)
 
-    # Calculate Cramer's V
-    sample_size = contingency_table.to_numpy().sum()
-    minimum_dimension = min(
-        contingency_table.shape[0] - 1,
-        contingency_table.shape[1] - 1
-    )
+    sample_size = int(contingency_table.to_numpy().sum())
+    minimum_dimension = min(contingency_table.shape) - 1
+    cramers_v = float(np.sqrt(chi2 / (sample_size * minimum_dimension)))
 
-    cramers_v = np.sqrt(
-        chi2 / (sample_size * minimum_dimension)
-    )
-
-    # Check expected frequency assumptions
     expected_values = expected.flatten()
+    share_below_5 = float((expected_values < 5).mean())
 
     assumption_check = {
-        "Minimum Expected Frequency": expected_values.min(),
-        "Percentage Below 5": (
-                                      (expected_values < 5).sum() / len(expected_values)
-                              ) * 100,
-        "Assumptions Met": (
-                (expected_values >= 1).all()
-                and (expected_values < 5).sum() / len(expected_values) <= 0.20
-        )
+        "Minimum Expected Frequency": float(expected_values.min()),
+        "Percentage Below 5": share_below_5 * 100,
+        "Assumptions Met": bool(
+            (expected_values >= 1).all() and share_below_5 <= 0.20
+        ),
     }
 
     return {
         "feature": feature,
         "target": target,
         "contingency_table": contingency_table,
-        "chi_square": chi2,
-        "p_value": p_value,
-        "degrees_of_freedom": degrees_of_freedom,
+        "chi_square": float(chi2),
+        "p_value": float(p_value),
+        "degrees_of_freedom": int(degrees_of_freedom),
         "cramers_v": cramers_v,
         "observations": sample_size,
         "expected_frequencies": expected,
-        "assumption_check": assumption_check
+        "assumption_check": assumption_check,
     }
 
 
-def analyze_categorical_features(df, target):
+def analyze_categorical_features(df, target, features=None):
     """
-    Test every categorical feature against a specified target.
+    Test each feature against the target.
+
+    Parameters:
+        features: Columns to test. Defaults to every non-numeric column.
+                  Better: pass the columns your profiler marked categorical.
+
+    Returns:
+        dict with "results" (DataFrame sorted by Cramer's V) and
+        "skipped" (list of {feature, reason}) so nothing fails silently.
     """
+    if features is None:
+        features = df.select_dtypes(exclude="number").columns.tolist()
 
-    categorical_columns = df.select_dtypes(
-        exclude="number"
-    ).columns.tolist()
+    features = [f for f in features if f != target]
 
-    # Do not compare the target against itself
-    features = [
-        column for column in categorical_columns
-        if column != target
-    ]
-
-    results = []
+    rows, skipped = [], []
 
     for feature in features:
         try:
-            analysis = analyze_categorical_relationship(
-                df,
-                feature,
-                target
-            )
-
-            results.append({
-                "Feature": feature,
-                "Chi-Square": analysis["chi_square"],
-                "P-value": analysis["p_value"],
-                "Cramer's V": analysis["cramers_v"],
-                "Observations": analysis["observations"],
-                "Assumptions Met": analysis["assumption_check"]["Assumptions Met"]
-            })
-
-        except ValueError:
+            analysis = analyze_categorical_relationship(df, feature, target)
+        except ValueError as error:
+            skipped.append({"feature": feature, "reason": str(error)})
             continue
 
-    results_df = pd.DataFrame(results)
+        rows.append({
+            "Feature": feature,
+            "Chi-Square": analysis["chi_square"],
+            "P-value": analysis["p_value"],
+            "Cramer's V": analysis["cramers_v"],
+            "Observations": analysis["observations"],
+            "Assumptions Met": analysis["assumption_check"]["Assumptions Met"],
+        })
 
-    if not results_df.empty:
-        results_df = results_df.sort_values(
-            by="Cramer's V",
-            ascending=False
+    results = pd.DataFrame(
+        rows,
+        columns=["Feature", "Chi-Square", "P-value", "Cramer's V",
+                 "Observations", "Assumptions Met"],
+    )
+    if not results.empty:
+        results = results.sort_values(
+            by="Cramer's V", ascending=False
         ).reset_index(drop=True)
 
-    return results_df
+    return {"results": results, "skipped": skipped}

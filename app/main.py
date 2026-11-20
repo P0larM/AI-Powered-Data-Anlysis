@@ -1,112 +1,90 @@
+from pathlib import Path
 
+from app.data.cleaner import clean_dataframe
 from app.data.loader import load_dataset
-from app.data.profiler import profile_dataset
-from statistical_analysis.correlation import analyze_correlations
-from statistical_analysis.categorical import analyze_categorical_features
-from statistical_analysis.multiple_testing import correct_p_values
-from statistical_analysis.regression import linear_regression
+from app.data.profiler import columns_of_type, format_profile, profile_dataset
+from app.statistical_analysis.categorical import analyze_categorical_features
+from app.statistical_analysis.correlation import analyze_correlations
+from app.statistical_analysis.multiple_testing import correct_p_values
+from app.statistical_analysis.regression import linear_regression
+
+# ---- Dataset-specific settings live ONLY here ------------------------------
+DATASET_PATH = Path(__file__).resolve().parent.parent / "datasets" / "adult.data"
+
+ADULT_COLUMNS = [
+    "age", "workclass", "fnlwgt", "education", "education-num",
+    "marital-status", "occupation", "relationship", "race", "sex",
+    "capital-gain", "capital-loss", "hours-per-week", "native-country",
+    "income",
+]
+
+TARGET = "income"
+REGRESSION_TARGET = "hours_per_week"
+REGRESSION_PREDICTORS = ["age", "education_num", "capital_gain", "capital_loss"]
+# -----------------------------------------------------------------------------
+
+
+def section(title):
+    print(f"\n========== {title} ==========")
+
+
+def run_correlations(df, columns):
+    for method in ("pearson", "spearman"):
+        results = analyze_correlations(df, method=method, columns=columns)
+
+        section(f"{method.upper()} CORRELATION")
+        print(results["matrix"].round(3))
+
+        corrected = correct_p_values(results["pairs"])
+        print(f"\nStrongest relationships (with corrected p-values):")
+        print(corrected.head(10).to_string(index=False))
+
+
+def run_categorical(df, features):
+    analysis = analyze_categorical_features(df, target=TARGET, features=features)
+
+    section("CATEGORICAL ANALYSIS (corrected p-values)")
+    corrected = correct_p_values(analysis["results"])
+    print(corrected.to_string(index=False))
+
+    if analysis["skipped"]:
+        print("\nSkipped:")
+        for item in analysis["skipped"]:
+            print(f"  {item['feature']}: {item['reason']}")
+
+
+def run_regression(df):
+    results = linear_regression(df, REGRESSION_TARGET, REGRESSION_PREDICTORS)
+
+    section("MULTIPLE LINEAR REGRESSION")
+    print(results["coefficients"].round(4))
+    print(f"\nR-squared: {results['r_squared']:.4f}")
+    print(f"Adjusted R-squared: {results['adjusted_r_squared']:.4f}")
+    print(f"F-statistic: {results['f_statistic']:.4f}")
+    print(f"F-test p-value: {results['f_p_value']:.6e}")
+    print(f"Observations: {results['observations']} "
+          f"({results['rows_dropped']} dropped)")
+    print(f"VIF: { {k: round(v, 2) for k, v in results['vif'].items()} }")
+
+    if results["warnings"]:
+        print("\nWarnings:")
+        for warning in results["warnings"]:
+            print(f"  - {warning}")
 
 
 def main():
+    raw = load_dataset(DATASET_PATH, column_names=ADULT_COLUMNS)
+    df = clean_dataframe(raw)
 
-    file_path = "datasets/adult.data"
+    profile = profile_dataset(df)
+    print(format_profile(profile))
 
-    # 1. Load dataset
-    df = load_dataset(file_path)
+    numeric = columns_of_type(profile, "continuous", "discrete")  # weights/IDs excluded
+    categorical = columns_of_type(profile, "categorical")
 
-    if df is not None:
-
-        # 2. Profile dataset
-        profile_dataset(df)
-
-
-        # 3. Pearson correlation analysis
-        pearson_results = analyze_correlations(df, method="pearson")
-
-        print("\n========== PEARSON CORRELATION ==========")
-        print(pearson_results["matrix"].round(3))
-
-        print("\nStrongest Relationships:")
-        print(pearson_results["pairs"].head(10).to_string(index=False))
-
-        # 4. Spearman correlation analysis
-        spearman_results = analyze_correlations(df, method="spearman")
-
-        print("\n========== SPEARMAN CORRELATION ==========")
-        print(spearman_results["matrix"].round(3))
-
-        print("\nStrongest Relationships:")
-        print(spearman_results["pairs"].head(10).to_string(index=False))
-
-        # 5. Categorical analysis
-        categorical_results = analyze_categorical_features(
-            df,
-            target="income"
-        )
-
-        print("\n========== CATEGORICAL ANALYSIS ==========")
-        print(categorical_results.to_string(index=False))
-
-        # Multiple Testing Corrections
-
-        # Correct Pearson correlation p-values
-        pearson_corrected = correct_p_values(
-            pearson_results["pairs"]
-        )
-
-        # Correct Spearman correlation p-values
-        spearman_corrected = correct_p_values(
-            spearman_results["pairs"]
-        )
-
-        # Correct categorical analysis p-values
-        categorical_corrected = correct_p_values(
-            categorical_results
-        )
-
-        print("\n========== PEARSON: CORRECTED P-VALUES ==========")
-        print(pearson_corrected.head(10).to_string(index=False))
-
-        print("\n========== SPEARMAN: CORRECTED P-VALUES ==========")
-        print(spearman_corrected.head(10).to_string(index=False))
-
-        print("\n========== CATEGORICAL: CORRECTED P-VALUES ==========")
-        print(categorical_corrected.to_string(index=False))
-
-        # Multiple Linear Regression
-
-        regression_results = linear_regression(
-            df,
-            target="hours_per_week",
-            predictors=[
-                "age",
-                "education_num",
-                "capital_gain",
-                "capital_loss"
-            ]
-        )
-
-        print("\n========== MULTIPLE LINEAR REGRESSION ==========")
-
-        print("\nCoefficient Results:")
-        print(regression_results["coefficients"].round(4))
-
-        print("\nModel Performance:")
-        print(f"R-squared: {regression_results['r_squared']:.4f}")
-        print(f"Adjusted R-squared: {regression_results['adjusted_r_squared']:.4f}")
-        print(f"F-statistic: {regression_results['f_statistic']:.4f}")
-        print(f"F-test p-value: {regression_results['f_p_value']:.6e}")
-        print(f"Observations: {regression_results['observations']}")
-
-        print("\nFull Regression Summary:")
-        print(regression_results["summary"])
-
-
-
-
-
-
-
+    run_correlations(df, numeric)
+    run_categorical(df, categorical)
+    run_regression(df)
 
 
 if __name__ == "__main__":
