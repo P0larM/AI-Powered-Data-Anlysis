@@ -16,6 +16,7 @@ from app.statistical_analysis.correlation import analyze_correlations
 from app.statistical_analysis.group_comparison import compare_groups
 from app.statistical_analysis.multiple_testing import correct_p_values
 from app.statistical_analysis.regression import linear_regression
+from app.statistical_analysis.logistic_regression import logistic_regression
 
 STATS_MAX_ROWS = 200_000
 STATS_TIMEOUT_MS = 30_000
@@ -53,6 +54,20 @@ STAT_TOOLS = [
         "F-test, VIF and assumption warnings. All columns must be numeric.",
         {
             "target": {"type": "string", "description": "Dependent variable column."},
+            "predictors": {"type": "array", "items": {"type": "string"},
+                           "description": "Independent variable columns."},
+        },
+        ["target", "predictors"],
+    ),
+    _tool(
+        "run_logistic_regression",
+        "Logistic regression for a yes/no outcome. Returns odds ratios (per "
+        "one-unit increase of each predictor), McFadden R-squared, AUC and "
+        "accuracy versus a baseline. The target must be coded 0/1 and all "
+        "columns numeric.",
+        {
+            "target": {"type": "string",
+                       "description": "0/1 outcome column, e.g. (income = '>50K')::int AS high_income."},
             "predictors": {"type": "array", "items": {"type": "string"},
                            "description": "Independent variable columns."},
         },
@@ -163,6 +178,10 @@ def _regression(df, args):
     output["coefficients"] = output["coefficients"].reset_index().rename(columns={"index": "Term"})
     return output
 
+def _logistic(df, args):
+    output = logistic_regression(df, args["target"], _as_list(args.get("predictors")))
+    output["coefficients"] = output["coefficients"].reset_index().rename(columns={"index": "Term"})
+    return output
 
 def _correlations(df, args):
     method = args.get("method") or "pearson"
@@ -205,6 +224,7 @@ _HANDLERS = {
     "run_correlations": _correlations,
     "run_categorical_test": _categorical,
     "compare_groups": _compare,
+    "run_logistic_regression": _logistic,
 }
 
 
