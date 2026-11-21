@@ -1,5 +1,6 @@
-# AI Data Analyst
 
+# AI Data Analyst
+<img width="2549" height="1324" alt="AI-Demo" src="https://github.com/user-attachments/assets/0f9f14ae-5782-4eb2-9a8d-19d4f7d5b5ce" />
 Upload a CSV, ask questions in plain English, and get answers backed by real SQL and real statistics. Every answer shows the exact query that produced it.
 
 <p align="center">
