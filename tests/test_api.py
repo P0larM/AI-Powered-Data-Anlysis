@@ -76,6 +76,22 @@ def test_ask_returns_the_assistant_result(fake_db, monkeypatch):
     monkeypatch.setenv("COHERE_API_KEY", "test")
     fake_db["datasets"] = [{"table_name": "people"}]
     monkeypatch.setattr(server, "answer_question",
-                        lambda q, uid, ds, conn: {"answer": f"echo: {q}", "queries": [], "analyses": [], "api_calls": 1})
+                        lambda q, uid, ds, conn, history=None: {"answer": f"echo: {q}", "queries": [], "analyses": [], "api_calls": 1})
     response = client.post("/ask", headers=HEADERS, json={"question": " hi "})
     assert response.status_code == 200 and response.json()["answer"] == "echo: hi"
+
+def test_ask_passes_history_and_scopes_to_a_table(fake_db, monkeypatch):
+    monkeypatch.setenv("COHERE_API_KEY", "test")
+    fake_db["datasets"] = [{"table_name": "people"}, {"table_name": "other"}]
+    seen = {}
+
+    def fake_answer(q, uid, ds, conn, history=None):
+        seen.update(tables=[d["table_name"] for d in ds], history=history)
+        return {"answer": "ok", "queries": [], "analyses": [], "api_calls": 1}
+
+    monkeypatch.setattr(server, "answer_question", fake_answer)
+    body = {"question": "and by sex?", "table": "people",
+            "history": [{"question": "q1", "answer": "a1", "sql": ["SELECT 1"], "analyses": []}]}
+    assert client.post("/ask", headers=HEADERS, json=body).status_code == 200
+    assert seen["tables"] == ["people"] and seen["history"][0]["question"] == "q1"
+    assert client.post("/ask", headers=HEADERS, json={**body, "table": "nope"}).status_code == 404

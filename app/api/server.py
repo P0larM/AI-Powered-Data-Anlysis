@@ -90,6 +90,19 @@ def list_datasets(
     return datasets
 
 
+class Turn(BaseModel):
+    """One earlier exchange. Send back the "turn" object each /ask response returns."""
+    question: str = Field(max_length=2000)
+    answer: str = Field(max_length=8000)
+    sql: list[str] = Field(default_factory=list, max_length=10)
+    analyses: list[dict] = Field(default_factory=list, max_length=10)
+
+
+class AskRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+    table: str | None = None  # limit the question to one of your datasets
+    history: list[Turn] = Field(default_factory=list, max_length=20)
+
 @app.post("/ask")
 def ask(request: AskRequest, user_id: Annotated[str, Depends(current_user)]):
     """Ask a plain-English question about the caller's data."""
@@ -103,9 +116,14 @@ def ask(request: AskRequest, user_id: Annotated[str, Depends(current_user)]):
         datasets = get_user_datasets(conn, user_id)
     if not datasets:
         raise HTTPException(status_code=404, detail="No datasets yet. Upload one with POST /datasets.")
+    if request.table:
+        datasets = [d for d in datasets if d["table_name"] == request.table]
+        if not datasets:
+            raise HTTPException(status_code=404, detail=f"No dataset named '{request.table}'.")
 
+    history = [turn.model_dump() for turn in request.history]
     with get_query_connection() as query_conn:
         try:
-            return answer_question(question, user_id, datasets, query_conn)
+            return answer_question(question, user_id, datasets, query_conn, history=history)
         except RuntimeError as error:  # e.g. AI provider rate limit
             raise HTTPException(status_code=503, detail=str(error))

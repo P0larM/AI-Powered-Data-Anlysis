@@ -19,6 +19,8 @@ load_dotenv()
 
 MODEL = os.environ.get("COHERE_MODEL", "command-a-03-2025")
 MAX_STEPS = 6              # model <-> database round trips (each one is an API call)
+MAX_HISTORY_TURNS = 6      # earlier question/answer pairs sent back to the model
+MAX_NOTES_CHARS = 1500     # cap on the SQL/tool notes kept per earlier turn
 MAX_RETRIES = 3            # extra attempts when Cohere answers 429 (rate limited)
 ROWS_SHOWN_TO_MODEL = 50   # the caller still gets up to max_rows
 
@@ -42,7 +44,9 @@ Rules:
 - Say what an odds ratio means in words: 0.96 means the odds are multiplied by 0.96 (about 4% lower), never "0.96 lower". Write p-values as "p < 0.001" or "p below 0.001".
 - When reporting rates or averages for groups, also return how much data is behind each one: COUNT(*) for rows, and COUNT(column) (non-null values) for the number actually used in an average. Never describe COUNT(*) as the number of values behind an average when the column has missing values.
 - The user may have several tables. If the question doesn't make clear which table it's about and more than one could fit, ask which one they mean instead of guessing. Always say which table your answer is based on.
-
+Conversation:
+- The question may be a follow-up ("redo that", "now by sex", "what about women?"). Earlier answers may end with internal notes listing the SQL and tool calls used. Use them to interpret the follow-up and reuse the same table and columns unless the user changes them. Never repeat or mention the notes.
+- You may quote figures stated in earlier answers, but any new figure must come from a new query or tool call.
 Statistics:
 - For tests and models, use run_regression, run_logistic_regression, run_correlations, run_categorical_test and compare_groups. Don't hand-write statistical formulas in SQL.
 - Each statistics tool takes a `query`: a SELECT returning one row per observation and only the columns needed. Regression and correlation need numeric columns, so turn categories into numbers in the query, e.g. (sex = 'Male')::int AS is_male.
@@ -52,6 +56,10 @@ Statistics:
 - For a yes/no outcome use run_logistic_regression, not run_regression. Odds ratios are per one-unit increase of the predictor, so state the unit (per year of age, per dollar). An odds ratio of 1.5 means 50% higher odds, not a 50% higher probability.
 - AUC and accuracy are in-sample, so call them optimistic and compare accuracy to the baseline (always guessing the majority class).
 - Never report a statistic that a tool did not return.
+
+Conversation:
+- The question may be a follow-up ("redo that", "now by sex", "what about women?"). Earlier answers may end with internal notes listing the SQL and tool calls used. Use them to interpret the follow-up and reuse the same table and columns unless the user changes them. Never repeat or mention the notes.
+- You may quote figures stated in earlier answers, but any new figure must come from a new query or tool call.
 
 Schema:
 {schema}
@@ -133,8 +141,41 @@ def _text_of(message):
         part.text for part in (message.content or []) if getattr(part, "text", None)
     ).strip()
 
+def _turn_notes(turn):
+    """Compact record of what an earlier turn ran (no result rows)."""
+    lines = [f"SQL run: {sql}" for sql in turn.get("sql", [])]
+    for analysis in turn.get("analyses", []):
+        arguments = json.dumps(analysis.get("arguments", {}), default=str)
+        lines.append(f"Tool {analysis.get('tool')} called with {arguments}")
+    return "\n".join(lines)[:MAX_NOTES_CHARS]
 
-def answer_question(question, user_id, datasets, query_conn, client=None):
+
+def build_history_messages(history):
+    """Earlier turns -> chat messages (last MAX_HISTORY_TURNS only)."""
+    messages = []
+    for turn in (history or [])[-MAX_HISTORY_TURNS:]:
+        question = str(turn.get("question", "")).strip()
+        answer = str(turn.get("answer", "")).strip()
+        if not question or not answer:
+            continue
+        notes = _turn_notes(turn)
+        if notes:
+            answer = f"{answer}\n\n(Internal notes, not for the user:\n{notes})"
+        messages.append({"role": "user", "content": question})
+        messages.append({"role": "assistant", "content": answer})
+    return messages
+
+
+def _make_turn(question, answer, queries, analyses):
+    """What the caller sends back as `history` on the next question."""
+    return {
+        "question": question,
+        "answer": answer,
+        "sql": [q["sql"] for q in queries],
+        "analyses": [{"tool": a["tool"], "arguments": a["arguments"]} for a in analyses],
+    }
+
+def answer_question(question, user_id, datasets, query_conn, client=None, history=None):
     """
     Run the question -> SQL -> result -> answer loop.
 
@@ -148,6 +189,7 @@ def answer_question(question, user_id, datasets, query_conn, client=None):
 
     messages = [
         {"role": "system", "content": system},
+        *build_history_messages(history),
         {"role": "user", "content": question},
     ]
     queries, analyses = [], []
@@ -156,8 +198,10 @@ def answer_question(question, user_id, datasets, query_conn, client=None):
         response = _chat(client, messages)
 
         if not response.message.tool_calls:
-            return {"answer": _text_of(response.message), "queries": queries,
-                    "analyses": analyses, "steps": step, "api_calls": step}
+            answer = _text_of(response.message)
+            return {"answer": answer, "queries": queries, "analyses": analyses,
+                "turn": _make_turn(question, answer, queries, analyses),
+                "steps": step, "api_calls": step}
 
         messages.append({
             "role": "assistant",
@@ -183,17 +227,18 @@ def answer_question(question, user_id, datasets, query_conn, client=None):
                 content = f"Error: {error}"
             messages.append({"role": "tool", "tool_call_id": call.id, "content": content})
 
+    answer = "I couldn't get a working answer within the step limit. Try rephrasing the question."
     return {
-        "answer": "I couldn't get a working answer within the step limit. "
-                  "Try rephrasing the question.",
+        "answer": answer,
         "queries": queries,
         "analyses": analyses,
+        "turn": _make_turn(question, answer, queries, analyses),
         "steps": MAX_STEPS,
         "api_calls": MAX_STEPS,
     }
 
 
-def ask(question, user_id):
+def ask(question, user_id, history=None):
     """Convenience wrapper that opens the database connections itself."""
     if not os.environ.get("COHERE_API_KEY"):
         raise RuntimeError("Set COHERE_API_KEY in your .env file.")
@@ -204,17 +249,19 @@ def ask(question, user_id):
         raise RuntimeError(f"User '{user_id}' has no datasets yet.")
 
     with get_query_connection() as query_conn:
-        return answer_question(question, user_id, datasets, query_conn)
+        return answer_question(question, user_id, datasets, query_conn, history=history)
 
 
 if __name__ == "__main__":
     user = "demo"
-    print("Ask a question about your data (blank line to quit).")
+    print("Ask a question about your data (blank line to quit). Follow-ups are remembered.")
+    history = []
     while True:
         question = input("\n> ").strip()
         if not question:
             break
-        outcome = ask(question, user)
+        outcome = ask(question, user, history)
+        history.append(outcome["turn"])
         for query in outcome["queries"]:
             print("\nSQL:", query["sql"])
         for analysis in outcome["analyses"]:
