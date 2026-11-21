@@ -40,6 +40,8 @@ Rules:
 - When reporting rates or averages for groups, also return the group sizes (COUNT(*)) so the reader knows how much data is behind each number.
 - A predictor entered as one number (including ordinal codes like passenger class 1/2/3) gets ONE coefficient: its odds ratio applies per one-unit step and assumes the same effect for each step. Never invent per-category odds ratios. If per-category effects are wanted, encode each category as its own 0/1 column in SQL. Only report odds ratios that appear in the tool result.
 - Say what an odds ratio means in words: 0.96 means the odds are multiplied by 0.96 (about 4% lower), never "0.96 lower". Write p-values as "p < 0.001" or "p below 0.001".
+- When reporting rates or averages for groups, also return how much data is behind each one: COUNT(*) for rows, and COUNT(column) (non-null values) for the number actually used in an average. Never describe COUNT(*) as the number of values behind an average when the column has missing values.
+- The user may have several tables. If the question doesn't make clear which table it's about and more than one could fit, ask which one they mean instead of guessing. Always say which table your answer is based on.
 
 Statistics:
 - For tests and models, use run_regression, run_logistic_regression, run_correlations, run_categorical_test and compare_groups. Don't hand-write statistical formulas in SQL.
@@ -113,7 +115,7 @@ def _chat(client, messages):
     """One Cohere call, retrying with backoff when rate limited (HTTP 429)."""
     for attempt in range(MAX_RETRIES + 1):
         try:
-            return client.chat(model=MODEL, messages=messages, tools=[RUN_SQL_TOOL, *STAT_TOOLS])
+            return client.chat(model=MODEL, messages=messages, tools=[RUN_SQL_TOOL, *STAT_TOOLS], temperature=0)
         except Exception as error:
             if getattr(error, "status_code", None) == 429 and attempt < MAX_RETRIES:
                 time.sleep(5 * 2 ** attempt)  # trial keys allow ~20 chat calls/min

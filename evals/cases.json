@@ -1,0 +1,71 @@
+[
+  {"id": "adult_male_count", "table": "adult",
+    "question": "How many men are in the dataset?",
+    "expect_numbers": [{"value": 21790, "tolerance": 0}], "max_api_calls": 3},
+
+  {"id": "adult_high_income_count", "table": "adult",
+    "question": "How many people earn more than 50K?",
+    "expect_numbers": [{"value": 7841, "tolerance": 0}], "max_api_calls": 3},
+
+  {"id": "adult_missing_workclass", "table": "adult",
+    "question": "How many records have a missing workclass?",
+    "expect_numbers": [{"value": 1836, "tolerance": 0}], "max_api_calls": 3},
+
+  {"id": "adult_avg_age_by_sex", "table": "adult",
+    "question":"In the adult table, what is the average age for men and for women?",
+    "expect_numbers": [{"value": 39.43, "tolerance": 0.06}, {"value": 36.86, "tolerance": 0.06}]},
+
+  {"id": "adult_income_percentage", "table": "adult",
+    "question": "What percentage of people earn more than 50K?",
+    "expect_numbers": [{"value": 24.08, "tolerance": 0.05}], "grounded": true},
+
+  {"id": "adult_compare_hours", "table": "adult",
+    "question": "Do men work more hours per week than women?",
+    "expect_tool": "compare_groups",
+    "expect_tool_args": {"group_column": "sex", "value_column": "hours_per_week"},
+    "expect_numbers": [{"value": 42.43, "tolerance": 0.06}, {"value": 36.41, "tolerance": 0.06}],
+    "grounded": true},
+
+  {"id": "adult_categorical_association", "table": "adult",
+    "question": "Which categorical columns are most associated with income?",
+    "expect_tool": "run_categorical_test",
+    "expect_numbers": [{"value": 0.4536, "tolerance": 0.002}],
+    "answer_must_include_any": ["relationship", "marital"], "grounded": true},
+
+  {"id": "adult_unanswerable", "table": "adult",
+    "question": "What is the average income in dollars?",
+    "answer_must_include_any": ["bracket", "categor", "only", "not (available|recorded|include)",
+      "doesn't", "does not", "cannot", "can't", "unable"]},
+
+  {"id": "titanic_overall_survival", "table": "titanic",
+    "question": "What percentage of passengers survived?",
+    "expect_numbers": [{"value": 38.38, "tolerance": 0.06}]},
+
+  {"id": "titanic_class_counts", "table": "titanic",
+    "question": "How many passengers were in each class?",
+    "expect_numbers": [{"value": 216, "tolerance": 0}, {"value": 184, "tolerance": 0}, {"value": 491, "tolerance": 0}]},
+
+  {"id": "titanic_missing_age", "table": "titanic",
+    "question": "How many passengers have a missing age?",
+    "expect_numbers": [{"value": 177, "tolerance": 0}], "max_api_calls": 3},
+
+  {"id": "titanic_survival_class_sex", "table": "titanic",
+    "question": "What percentage of passengers survived in each passenger class, split by sex?",
+    "expect_numbers": [{"value": 96.81, "tolerance": 0.06}, {"value": 36.89, "tolerance": 0.06},
+      {"value": 92.11, "tolerance": 0.06}, {"value": 15.74, "tolerance": 0.06},
+      {"value": 50.0, "tolerance": 0.06}, {"value": 13.54, "tolerance": 0.06}]},
+
+  {"id": "titanic_logistic", "table": "titanic",
+    "question": "What predicts survival? Use age, fare, passenger class and being female.",
+    "expect_tool": "run_logistic_regression",
+    "expect_tool_args": {"target": "survived"},
+    "expect_numbers": [{"value": 714, "tolerance": 0}, {"value": 12.41, "tolerance": 0.1}],
+    "answer_must_include_any": ["177", "missing", "dropped"],
+    "answer_must_not_match": ["\\b0\\.\\d+\\s+(lower|higher)\\b"],
+    "grounded": true, "max_api_calls": 4},
+
+  {"id": "ambiguous_table", "table": "adult",
+    "question": "What is the average age for men and for women?",
+    "answer_must_include_any": ["adult", "titanic", "passenger", "census",
+      "which (dataset|table)", "do you mean", "clarify"]}
+]
