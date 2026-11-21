@@ -163,4 +163,5 @@ The evals use Adult and Titanic questions whose correct answers are known, and c
 
 ## Roadmap
 
-Real authentication and per-user question limits · deleting datasets · date parsing · configurable missing-value markers · held-out validation for logistic regression · connection pooling
+Real authentication and per-user question limits · deleting datasets · date parsing · configurable missing-value markers · held-out validation for logistic regression · connection pooling · machine learning methods · hypothesis testing
+
