@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AI Data Analyst</title>
+    <style>
+        :root{
+            --bg:#f5f6f8; --panel:#ffffff; --fg:#14161a; --mut:#667085; --line:#e4e7ec; --soft:#f2f4f7;
+            --acc:#4f46e5; --acc-soft:#eef0ff; --acc-fg:#ffffff;
+            --warn:#93370d; --warn-bg:#fffaeb; --warn-line:#fedf89; --err:#d92d20;
+            --kw:#7c3aed; --str:#0e7c5a; --num:#b54708;
+            --shadow:0 1px 2px rgba(16,24,40,.05),0 2px 8px rgba(16,24,40,.06);
+            --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+        }
+        @media (prefers-color-scheme:dark){:root{
+            --bg:#0e1014; --panel:#161920; --fg:#e8eaee; --mut:#98a2b3; --line:#262a33; --soft:#1d212a;
+            --acc:#6b72f0; --acc-soft:#232749; --acc-fg:#ffffff;
+            --warn:#fdb022; --warn-bg:#2a2112; --warn-line:#4a3a14; --err:#f97066;
+            --kw:#b69cff; --str:#4ade9f; --num:#fdb022;
+            --shadow:0 1px 2px rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.3);
+        }}
+        *{box-sizing:border-box}
+        html,body{height:100%}
+        body{margin:0;font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--fg);
+            display:grid;grid-template-columns:304px 1fr;height:100vh;height:100dvh;-webkit-font-smoothing:antialiased}
+        button,input{font:inherit;color:inherit}
+        .mut{color:var(--mut)}
+
+        /* ---------- sidebar ---------- */
+        aside{background:var(--panel);border-right:1px solid var(--line);padding:20px 16px;overflow:auto;display:flex;flex-direction:column;gap:20px}
+        .brand{display:flex;align-items:center;gap:12px}
+        #menu{display:none;margin-left:auto;padding:6px 12px;font-size:13px}
+        .logo{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,var(--acc),#a78bfa);display:grid;place-items:center;flex:none}
+        .brand b{display:block;font-size:16px;letter-spacing:-.01em}
+        .brand small{color:var(--mut);font-size:12px}
+        .sec h2{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:0 0 8px}
+        .field{width:100%;padding:8px 11px;border:1px solid var(--line);border-radius:9px;background:var(--bg)}
+        .field:focus{outline:2px solid var(--acc);outline-offset:-1px}
+        .ds{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;cursor:pointer;transition:.12s}
+        .ds:hover{background:var(--soft)}
+        .ds:has(input:checked){border-color:var(--acc);background:var(--acc-soft)}
+        .ds input{accent-color:var(--acc);margin:0}
+        .ds b{display:block;font-weight:600;line-height:1.2}
+        .ds small{color:var(--mut);font-size:12px}
+        .drop{display:flex;flex-direction:column;gap:8px}
+        input[type=file]{width:100%;font-size:13px;color:var(--mut)}
+        input[type=file]::file-selector-button{margin-right:10px;padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:var(--soft);color:var(--fg);cursor:pointer}
+        .check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mut)}
+        .check input{accent-color:var(--acc)}
+        .btn{padding:8px 14px;border:0;border-radius:9px;background:var(--acc);color:var(--acc-fg);font-weight:600;cursor:pointer}
+        .btn:hover{filter:brightness(1.08)}
+        .btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line);font-weight:500}
+        .btn.ghost:hover{background:var(--soft)}
+        .btn:disabled{opacity:.5;cursor:default}
+        #upmsg{font-size:13px;margin:0;min-height:1em}
+        .spacer{flex:1}
+
+        /* ---------- main ---------- */
+        main{display:flex;flex-direction:column;min-width:0;min-height:0}
+        header{display:flex;align-items:center;gap:10px;padding:14px 24px;border-bottom:1px solid var(--line);background:var(--panel)}
+        .pill{padding:3px 11px;border-radius:999px;background:var(--acc-soft);color:var(--acc);font-weight:600;font-size:13px}
+        header span.mut{font-size:13px}
+        #log{flex:1;overflow:auto;padding:28px 24px;scroll-behavior:smooth}
+        .wrap{max-width:860px;margin:0 auto}
+        #empty{text-align:center;padding:9vh 0 0}
+        #empty h2{font-size:26px;letter-spacing:-.02em;margin:0 0 6px}
+        #empty p{color:var(--mut);margin:0 0 24px}
+        .chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+        .sugg{padding:9px 15px;border:1px solid var(--line);border-radius:999px;background:var(--panel);cursor:pointer;font-size:14px;box-shadow:var(--shadow)}
+        .sugg:hover{border-color:var(--acc);color:var(--acc)}
+
+        .msg{margin:0 0 18px;animation:rise .25s ease-out;scroll-margin-top:18px}
+        @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+        .msg.user{display:flex;justify-content:flex-end}
+        .msg.user span{max-width:80%;background:var(--acc);color:var(--acc-fg);padding:9px 15px;border-radius:16px 16px 4px 16px;overflow-wrap:anywhere}
+        .msg.bot .card{background:var(--panel);border:1px solid var(--line);border-radius:16px 16px 16px 4px;padding:16px 18px;box-shadow:var(--shadow)}
+        .msg.bot .foot{margin-top:12px;font-size:12px;color:var(--mut)}
+        .dots span{display:inline-block;width:7px;height:7px;margin-right:4px;border-radius:50%;background:var(--mut);animation:blink 1.2s infinite both}
+        .dots span:nth-child(2){animation-delay:.2s}.dots span:nth-child(3){animation-delay:.4s}
+        @keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+        .err{color:var(--err)}
+
+        /* rendered answer text */
+        .md>*:first-child{margin-top:0}.md>*:last-child{margin-bottom:0}
+        .md p{margin:0 0 10px;white-space:pre-line;overflow-wrap:anywhere}
+        .md h3,.md h4,.md h5{margin:14px 0 6px;letter-spacing:-.01em}
+        .md h3{font-size:17px}.md h4{font-size:15.5px}.md h5{font-size:14.5px}
+        .md ul,.md ol{margin:0 0 10px;padding-left:22px}.md li{margin:2px 0}
+        .md code{font-family:var(--mono);font-size:13px;background:var(--soft);padding:1px 6px;border-radius:5px}
+
+        /* tables */
+        .scroll{overflow:auto;max-height:300px;width:fit-content;max-width:100%;border:1px solid var(--line);border-radius:10px;margin:8px 0 10px}
+        .scroll.md-table{max-height:none}
+        table{border-collapse:collapse;min-width:260px;font-size:13.5px}
+        th,td{padding:7px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+        th{position:sticky;top:0;background:var(--soft);font-weight:600;font-size:12.5px;color:var(--mut)}
+        tr:last-child td{border-bottom:0}
+        tbody tr:hover td{background:var(--soft)}
+        td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+
+        /* details blocks */
+        details{margin-top:10px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+        details>summary{cursor:pointer;list-style:none;padding:9px 14px;font-size:13px;font-weight:600;color:var(--mut);display:flex;align-items:center;gap:8px}
+        details>summary::-webkit-details-marker{display:none}
+        details>summary::before{content:"▸";font-size:11px;transition:transform .15s}
+        details[open]>summary::before{transform:rotate(90deg)}
+        details>.inner{padding:2px 14px 14px}
+        details details{background:var(--panel)}
+        .sub{font-size:12px;font-weight:600;color:var(--mut);margin:12px 0 2px;text-transform:uppercase;letter-spacing:.04em}
+        pre{margin:6px 0;padding:11px 13px;border:1px solid var(--line);border-radius:10px;background:var(--panel);overflow:auto;font:12.5px/1.55 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
+        .kw{color:var(--kw);font-weight:600}.str{color:var(--str)}.sn{color:var(--num)}
+
+        /* chart */
+        .bar{display:grid;grid-template-columns:minmax(70px,28%) 1fr auto;align-items:center;gap:10px;font-size:13px;margin:5px 0}
+        .bar .lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mut)}
+        .track{height:16px;background:var(--soft);border-radius:6px;overflow:hidden}
+        .fill{height:100%;background:linear-gradient(90deg,var(--acc),#a78bfa);border-radius:6px}
+        .bar b{font-variant-numeric:tabular-nums;min-width:3ch;text-align:right}
+
+        /* analysis */
+        .metrics{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
+        .metric{padding:6px 11px;border:1px solid var(--line);border-radius:10px;background:var(--panel);line-height:1.25}
+        .metric i{display:block;font-style:normal;font-size:11px;color:var(--mut)}
+        .metric b{font-size:15px;font-variant-numeric:tabular-nums}
+        .warn{margin:10px 0 0;padding:9px 13px 9px 14px;border:1px solid var(--warn-line);background:var(--warn-bg);color:var(--warn);border-radius:10px;font-size:13px}
+        .warn div+div{margin-top:3px}
+        .note{font-size:13px;margin:8px 0 0}
+
+        /* composer */
+        #ask{padding:10px 24px 14px;background:linear-gradient(transparent,var(--bg) 30%)}
+        .composer{max-width:860px;margin:0 auto;display:flex;gap:8px;align-items:center;padding:6px 6px 6px 18px;background:var(--panel);border:1px solid var(--line);border-radius:999px;box-shadow:var(--shadow)}
+        .composer:focus-within{border-color:var(--acc)}
+        #q{flex:1;border:0;background:transparent;padding:8px 0;outline:none;min-width:0}
+        #send{width:38px;height:38px;border:0;border-radius:50%;background:var(--acc);color:var(--acc-fg);display:grid;place-items:center;cursor:pointer;flex:none}
+        #send:disabled{opacity:.45}
+        .disclaimer{max-width:860px;margin:8px auto 0;text-align:center;font-size:12px;color:var(--mut)}
+
+        @media(max-width:760px){
+            body{grid-template-columns:1fr;grid-template-rows:auto 1fr;height:auto;min-height:100dvh}
+            aside{border-right:0;border-bottom:1px solid var(--line);flex-direction:column;gap:14px;max-height:none;padding:12px 14px}
+            #menu{display:block}
+            aside:not(.open)>:not(.brand){display:none}
+            #log{min-height:60vh;padding:18px 14px}
+            header,#ask{padding-left:14px;padding-right:14px}
+            .bar{grid-template-columns:minmax(60px,34%) 1fr auto}
+        }
+    </style>
+</head>
+<body>
+<aside>
+    <div class="brand">
+        <span class="logo"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="10" width="3.5" height="7" rx="1" fill="#fff"/><rect x="8.25" y="5" width="3.5" height="12" rx="1" fill="#fff"/><rect x="13.5" y="2" width="3.5" height="15" rx="1" fill="#fff"/></svg></span>
+        <div><b>Data Analyst</b><small>Ask your data in plain English</small></div>
+        <button id="menu" class="btn ghost" type="button" aria-label="Datasets and upload">Datasets</button>
+    </div>
+
+    <div class="sec">
+        <h2>User</h2>
+        <input id="user" class="field" placeholder="e.g. demo" autocomplete="off">
+    </div>
+
+    <div class="sec">
+        <h2>Dataset</h2>
+        <div id="datasets"></div>
+    </div>
+
+    <form id="upload" class="sec">
+        <h2>Add data</h2>
+        <div class="drop">
+            <input type="file" name="file" accept=".csv,.tsv,.txt,.data" required>
+            <input class="field" name="table_name" placeholder="Table name (optional)">
+            <label class="check"><input type="checkbox" name="replace" value="true"> Replace if it already exists</label>
+            <button class="btn">Upload CSV</button>
+            <p id="upmsg" class="mut"></p>
+        </div>
+    </form>
+
+    <div class="spacer"></div>
+    <button id="reset" class="btn ghost" type="button">New conversation</button>
+</aside>
+
+<main>
+    <header><span class="pill" id="scope">All tables</span><span class="mut" id="hint">Follow-up questions are remembered</span></header>
+    <div id="log" aria-live="polite">
+        <div class="wrap">
+            <div id="empty">
+                <h2>What would you like to know?</h2>
+                <p>Choose a dataset, then ask a question or try one of these.</p>
+                <div class="chips" id="suggestions"></div>
+            </div>
+            <div id="thread"></div>
+        </div>
+    </div>
+    <form id="ask">
+        <div class="composer">
+            <input id="q" placeholder="Ask a question about your data…" autocomplete="off">
+            <button id="send" aria-label="Send"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14V4M4.5 8.5 9 4l4.5 4.5"/></svg></button>
+        </div>
+        <p class="disclaimer">AI can make mistakes. The SQL under each answer shows exactly what was run.</p>
+    </form>
+</main>
+
+<script>
+    const $ = s => document.querySelector(s);
+    const state = { history: [], table: "" };
+    const SUGGESTIONS = [
+        "How many rows are in this table?",
+        "Which columns have missing values?",
+        "Which numeric columns are most strongly related?",
+        "Summarize this dataset for me",
+    ];
+
+    function el(tag, attrs = {}, ...kids) {
+        const e = document.createElement(tag);
+        for (const [k, v] of Object.entries(attrs)) k === "class" ? e.className = v : e[k] = v;
+        for (const kid of kids.flat()) if (kid != null) e.append(kid);
+        return e;
+    }
+
+    async function api(path, opts = {}) {
+        const res = await fetch(path, { ...opts, headers: { "X-User-Id": $("#user").value.trim(), ...(opts.headers || {}) } });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail || res.statusText));
+        return data;
+    }
+
+    /* ---------- number / cell formatting ---------- */
+    function fmtNum(v) {
+        if (Number.isInteger(v)) return Math.abs(v) >= 10000 ? v.toLocaleString() : String(v);
+        if (v !== 0 && Math.abs(v) < 0.001) return v.toExponential(2);
+        return String(+v.toPrecision(4));
+    }
+    const cell = v => v === null || v === undefined ? "—" : typeof v === "number" ? fmtNum(v) : typeof v === "object" ? JSON.stringify(v) : String(v);
+    const LABELS = { auc: "AUC", aic: "AIC", vif: "VIF", r_squared: "R²", adjusted_r_squared: "Adjusted R²",
+        mcfadden_r_squared: "McFadden R²", f_statistic: "F statistic", f_p_value: "F-test p-value",
+        likelihood_ratio_p_value: "Likelihood-ratio p-value", breusch_pagan_p_value: "Breusch-Pagan p-value" };
+    const pretty = k => LABELS[k] || (k = k.replace(/_/g, " ")).charAt(0).toUpperCase() + k.slice(1);
+
+    /* ---------- tiny, safe markdown renderer (builds DOM nodes, never innerHTML) ---------- */
+    function inline(text) {
+        const out = [];
+        for (const part of text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g)) {
+            if (!part) continue;
+            if (part.length > 4 && part.startsWith("**") && part.endsWith("**")) out.push(el("strong", { textContent: part.slice(2, -2) }));
+            else if (part.length > 2 && part.startsWith("`") && part.endsWith("`")) out.push(el("code", { textContent: part.slice(1, -1) }));
+            else out.push(part);
+        }
+        return out;
+    }
+    const isRow = l => /^\s*\|.*\|\s*$/.test(l);
+    const isSep = l => l.includes("-") && /^\s*\|?[\s:|-]+\|?\s*$/.test(l);
+    const LIST_ITEM = /^\s*(?:[-*•]|\d+[.)])\s+(.*)$/;
+    const HEADING = /^(#{1,4})\s+(.*)$/;
+    const cells = l => l.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map(c => c.trim());
+    const looksNumeric = s => /^-?[\d,]*\.?\d+%?$/.test(s);
+
+    function renderMarkdown(text) {
+        const lines = text.replace(/\r/g, "").split("\n"), out = [];
+        let i = 0;
+        while (i < lines.length) {
+            const line = lines[i];
+            if (!line.trim()) { i++; continue; }
+
+            if (isRow(line)) {
+                const rows = [];
+                while (i < lines.length && isRow(lines[i])) rows.push(lines[i++]);
+                const body = rows.filter(r => !isSep(r)).map(cells);
+                if (body.length) {
+                    const [head, ...rest] = body;
+                    out.push(el("div", { class: "scroll md-table" }, el("table", {},
+                        el("thead", {}, el("tr", {}, head.map(h => el("th", { textContent: h })))),
+                        el("tbody", {}, rest.map(r => el("tr", {}, r.map(c => el("td", { class: looksNumeric(c) ? "num" : "" }, inline(c)))))))));
+                }
+                continue;
+            }
+
+            const heading = line.match(HEADING);
+            if (heading) { out.push(el("h" + Math.min(heading[1].length + 2, 5), {}, inline(heading[2]))); i++; continue; }
+
+            if (LIST_ITEM.test(line)) {
+                const ordered = /^\s*\d/.test(line), items = [];
+                while (i < lines.length && LIST_ITEM.test(lines[i])) items.push(lines[i++].match(LIST_ITEM)[1]);
+                out.push(el(ordered ? "ol" : "ul", {}, items.map(t => el("li", {}, inline(t)))));
+                continue;
+            }
+
+            const para = [];
+            while (i < lines.length && lines[i].trim() && !isRow(lines[i]) && !LIST_ITEM.test(lines[i]) && !HEADING.test(lines[i])) para.push(lines[i++]);
+            out.push(el("p", {}, inline(para.join("\n"))));
+        }
+        return el("div", { class: "md" }, out);
+    }
+
+    function answerNode(text) {
+        try { return renderMarkdown(text); }
+        catch { return el("div", { class: "md" }, el("p", { textContent: text })); }
+    }
+
+    /* ---------- SQL highlighting ---------- */
+    const KEYWORDS = "SELECT|FROM|WHERE|GROUP BY|ORDER BY|LIMIT|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AS|AND|OR|NOT|IN|IS|NULL|CASE|WHEN|THEN|ELSE|END|COUNT|AVG|SUM|MIN|MAX|ROUND|DISTINCT|HAVING|WITH|UNION|DESC|ASC|BETWEEN|LIKE|CAST|OVER|PARTITION BY";
+    const SQL_TOKEN = new RegExp(`('(?:[^']|'')*')|\\b(${KEYWORDS})\\b|\\b(\\d+(?:\\.\\d+)?)\\b`, "gi");
+    function highlightSql(sql) {
+        const frag = document.createDocumentFragment();
+        let last = 0;
+        for (const m of sql.matchAll(SQL_TOKEN)) {
+            if (m.index > last) frag.append(sql.slice(last, m.index));
+            frag.append(el("span", { class: m[1] ? "str" : m[2] ? "kw" : "sn" }, m[0]));
+            last = m.index + m[0].length;
+        }
+        frag.append(sql.slice(last));
+        return frag;
+    }
+    const sqlBlock = sql => el("pre", {}, highlightSql(sql));
+
+    /* ---------- data table + bar chart ---------- */
+    function dataTable(cols, rows) {
+        const isNum = i => rows.length && rows.every(r => r[i] === null || typeof r[i] === "number");
+        const t = el("table", {},
+            el("thead", {}, el("tr", {}, cols.map((c, i) => el("th", { class: isNum(i) ? "num" : "", textContent: c })))),
+            el("tbody", {}, rows.slice(0, 50).map(r => el("tr", {}, r.map((v, i) => el("td", { class: isNum(i) ? "num" : "", textContent: cell(v) }))))));
+        return el("div", { class: "scroll" }, t);
+    }
+
+    // Bars: value = the last all-numeric column; labels = the columns before it.
+    function chart(cols, rows) {
+        if (rows.length < 2 || rows.length > 30) return null;
+        let vi = -1;
+        for (let i = cols.length - 1; i > 0 && vi < 0; i--) if (rows.every(r => typeof r[i] === "number")) vi = i;
+        if (vi < 1) return null;
+        const max = Math.max(...rows.map(r => r[vi]));
+        if (rows.some(r => r[vi] < 0) || max <= 0) return null;
+        const box = el("div", {}, el("div", { class: "sub", textContent: pretty(cols[vi]) }));
+        for (const r of rows) {
+            box.append(el("div", { class: "bar" },
+                el("span", { class: "lbl", title: r.slice(0, vi).join(" / "), textContent: r.slice(0, vi).join(" / ") }),
+                el("div", { class: "track" }, el("div", { class: "fill", style: `width:${(r[vi] / max) * 100}%` })),
+                el("b", { textContent: fmtNum(r[vi]) })));
+        }
+        return box;
+    }
+
+    /* ---------- statistics tool results ---------- */
+    const TOOL_TITLES = {
+        run_regression: "Linear regression", run_logistic_regression: "Logistic regression",
+        run_correlations: "Correlations", run_categorical_test: "Categorical association tests",
+        compare_groups: "Group comparison",
+    };
+    const metric = (label, v) => el("div", { class: "metric" }, el("i", { textContent: label }), el("b", { textContent: cell(v) }));
+    const isObj = v => v && typeof v === "object" && !Array.isArray(v);
+
+    function analysisNode(a) {
+        const res = a.result, metrics = el("div", { class: "metrics" }), tables = [];
+        for (const [k, v] of Object.entries(res)) {
+            if (["sql", "note", "warnings"].includes(k)) continue;
+            if (v === null || ["number", "string", "boolean"].includes(typeof v)) metrics.append(metric(pretty(k), v));
+            else if (Array.isArray(v) && v.length && isObj(v[0])) tables.push([k, v]);
+            else if (isObj(v)) {
+                const vals = Object.values(v);
+                if (vals.length && vals.every(isObj)) tables.push([k, Object.entries(v).map(([name, o]) => ({ name, ...o }))]);
+                else for (const [k2, v2] of Object.entries(v)) if (typeof v2 !== "object") metrics.append(metric(`${pretty(k)} · ${k2}`, v2));
+            }
+        }
+        const body = [metrics.children.length ? metrics : null];
+        for (const [k, rows] of tables) {
+            const cols = Object.keys(rows[0]);
+            body.push(el("div", { class: "sub", textContent: pretty(k) }), dataTable(cols, rows.map(r => cols.map(c => r[c] ?? null))));
+        }
+        if (res.warnings?.length) body.push(el("div", { class: "warn" }, res.warnings.map(w => el("div", { textContent: "⚠ " + w }))));
+        if (res.note) body.push(el("p", { class: "note mut", textContent: res.note }));
+        body.push(el("details", {}, el("summary", { textContent: "SQL and raw output" }),
+            el("div", { class: "inner" }, sqlBlock(res.sql), el("pre", { textContent: JSON.stringify(res, null, 2) }))));
+        return el("details", { open: true }, el("summary", { textContent: "Analysis · " + (TOOL_TITLES[a.tool] || a.tool) }), el("div", { class: "inner" }, body));
+    }
+
+    /* ---------- answer card ---------- */
+    function renderAnswer(r) {
+        const card = el("div", { class: "card" }, answerNode(r.answer || "(no answer)"));
+        r.queries.forEach((q, i) => card.append(el("details", { open: i === 0 },
+            el("summary", { textContent: `SQL and data · ${q.row_count} row${q.row_count === 1 ? "" : "s"}${q.truncated ? " (truncated)" : ""}` }),
+            el("div", { class: "inner" }, sqlBlock(q.sql), dataTable(q.columns, q.rows), chart(q.columns, q.rows)))));
+        r.analyses.forEach(a => card.append(analysisNode(a)));
+        card.append(el("div", { class: "foot", textContent: `${r.api_calls} AI call${r.api_calls === 1 ? "" : "s"}` }));
+        return card;
+    }
+
+    /* ---------- chat plumbing ---------- */
+    function scrollDown() { $("#log").scrollTop = $("#log").scrollHeight; }
+    function setEmpty(show) { $("#empty").hidden = !show; }
+
+    function addUser(text) {
+        $("#thread").append(el("div", { class: "msg user" }, el("span", { textContent: text })));
+        scrollDown();
+    }
+    function addPending() {
+        const m = el("div", { class: "msg bot" }, el("div", { class: "card" }, el("span", { class: "dots" }, el("span"), el("span"), el("span"))));
+        $("#thread").append(m);
+        scrollDown();
+        return m;
+    }
+
+    async function ask(question) {
+        question = question.trim();
+        if (!question) return;
+        setEmpty(false);
+        addUser(question);
+        const pending = addPending();
+        $("#send").disabled = true;
+        try {
+            const r = await api("/ask", { method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ question, table: state.table || null, history: state.history }) });
+            state.history = [...state.history, r.turn].slice(-6);
+            pending.replaceChildren(renderAnswer(r));
+        } catch (e) {
+            pending.replaceChildren(el("div", { class: "card err", textContent: e.message }));
+        }
+        $("#send").disabled = false;
+        pending.scrollIntoView({ block: "start" });
+        $("#q").focus();
+    }
+
+    function updateScope() { $("#scope").textContent = state.table || "All tables"; }
+
+    function datasetOption(value, title, meta) {
+        const input = el("input", { type: "radio", name: "table", value, checked: state.table === value,
+            onchange: () => { state.table = value; state.history = []; updateScope(); } });
+        return el("label", { class: "ds" }, input, el("span", {}, el("b", { textContent: title }), el("small", { textContent: meta })));
+    }
+
+    async function loadDatasets() {
+        const box = $("#datasets");
+        box.replaceChildren();
+        try {
+            const list = await api("/datasets");
+            if (!list.length) { box.append(el("p", { class: "mut", textContent: "No datasets yet. Upload a CSV below." })); return; }
+            box.append(datasetOption("", "All tables", `${list.length} dataset${list.length === 1 ? "" : "s"}`));
+            for (const d of list) box.append(datasetOption(d.table_name, d.table_name, `${d.row_count.toLocaleString()} rows · ${d.columns.length} columns`));
+        } catch (e) { box.append(el("p", { class: "err", textContent: e.message })); }
+    }
+
+    function resetConversation() {
+        state.history = [];
+        $("#thread").replaceChildren();
+        setEmpty(true);
+    }
+
+    $("#ask").onsubmit = ev => { ev.preventDefault(); const q = $("#q").value; $("#q").value = ""; ask(q); };
+
+    $("#upload").onsubmit = async ev => {
+        ev.preventDefault();
+        const msg = $("#upmsg");
+        msg.className = "mut";
+        msg.textContent = "Uploading…";
+        try {
+            const r = await api("/datasets", { method: "POST", body: new FormData(ev.target) });
+            msg.textContent = `Loaded ${r.rows.toLocaleString()} rows into "${r.table}".`;
+            ev.target.reset();
+            await loadDatasets();
+        } catch (e) { msg.className = "err"; msg.textContent = e.message; }
+    };
+
+    $("#reset").onclick = resetConversation;
+    $("#menu").onclick = () => $("aside").classList.toggle("open");
+    $("#user").onchange = () => {
+        localStorage.setItem("uid", $("#user").value.trim());
+        state.table = "";
+        updateScope();
+        resetConversation();
+        loadDatasets();
+    };
+
+    for (const text of SUGGESTIONS) $("#suggestions").append(el("button", { class: "sugg", type: "button", textContent: text, onclick: () => ask(text) }));
+    $("#user").value = localStorage.getItem("uid") || "demo";
+    loadDatasets();
+</script>
+</body>
+</html>

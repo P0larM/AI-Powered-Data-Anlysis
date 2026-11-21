@@ -16,6 +16,7 @@ from app.api.uploads import MAX_UPLOAD_BYTES, UploadError, parse_upload
 from app.database.connection import get_ingest_connection, get_query_connection
 from app.database.ingest import get_user_datasets, ingest_dataframe, safe_identifiers
 from app.database.tenancy import schema_name
+from fastapi.responses import FileResponse
 
 app = FastAPI(title="AI Data Analyst")
 
@@ -40,6 +41,13 @@ class AskRequest(BaseModel):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+INDEX_PAGE = Path(__file__).resolve().parent.parent / "static" / "index.html"
+
+
+@app.get("/", include_in_schema=False)
+def index():
+    return FileResponse(INDEX_PAGE)
 
 
 @app.post("/datasets", status_code=201)

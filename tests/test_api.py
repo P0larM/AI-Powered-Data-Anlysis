@@ -95,3 +95,7 @@ def test_ask_passes_history_and_scopes_to_a_table(fake_db, monkeypatch):
     assert client.post("/ask", headers=HEADERS, json=body).status_code == 200
     assert seen["tables"] == ["people"] and seen["history"][0]["question"] == "q1"
     assert client.post("/ask", headers=HEADERS, json={**body, "table": "nope"}).status_code == 404
+
+def test_home_page_is_served():
+    response = client.get("/")
+    assert response.status_code == 200 and "AI Data Analyst" in response.text
