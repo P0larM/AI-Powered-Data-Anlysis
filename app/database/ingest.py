@@ -136,6 +136,45 @@ def delete_dataset(conn, user_id, table_name):
             cur.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(qualified))
 
 
+def rename_dataset(conn, user_id, old_name, new_name):
+    """
+    Rename a dataset in the user's schema and the metadata table.
+    """
+    schema = schema_name(user_id)
+    old_table = safe_identifiers([old_name])[0]
+    new_table = safe_identifiers([new_name])[0]
+
+    if old_table == new_table:
+        return
+
+    old_qualified = sql.SQL("{}.{}").format(sql.Identifier(schema), sql.Identifier(old_table))
+
+    with conn.transaction():
+        with conn.cursor() as cur:
+            _ensure_meta_table(cur)
+
+            # Check if new name already exists
+            cur.execute(
+                "SELECT 1 FROM app_meta.datasets WHERE user_id = %s AND table_name = %s",
+                (str(user_id), new_table),
+            )
+            if cur.fetchone():
+                raise ValueError(f"Dataset '{new_table}' already exists.")
+
+            # Update metadata
+            cur.execute(
+                "UPDATE app_meta.datasets SET table_name = %s WHERE user_id = %s AND table_name = %s",
+                (new_table, str(user_id), old_table),
+            )
+
+            # Rename the physical table
+            cur.execute(
+                sql.SQL("ALTER TABLE {} RENAME TO {}").format(
+                    old_qualified, sql.Identifier(new_table)
+                )
+            )
+
+
 # ---------- ingestion --------------------------------------------------------
 
 def ingest_dataframe(conn, df, user_id, table_name,

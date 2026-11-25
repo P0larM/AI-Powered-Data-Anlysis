@@ -3,7 +3,7 @@ import re
 
 from psycopg import sql
 
-_USER_ID = re.compile(r"[a-z0-9_]{1,40}")
+_USER_ID = re.compile(r"[a-f0-9-]{36}|[a-z0-9_]{1,40}")
 
 
 def schema_name(user_id):

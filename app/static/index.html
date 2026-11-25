@@ -55,9 +55,22 @@
         .btn.ghost:hover{background:var(--soft)}
         .btn:disabled{opacity:.5;cursor:default}
         #upmsg{font-size:13px;margin:0;min-height:1em}
-        .ds:hover .del-ds{opacity:1}
-        .del-ds{opacity:0;margin-left:auto;width:24px;height:24px;display:grid;place-items:center;border-radius:6px;color:var(--mut);transition:.12s;z-index:2}
+        .ds:hover .del-ds, .ds:hover .ren-ds{opacity:1}
+        .del-ds, .ren-ds{opacity:0;margin-left:8px;width:24px;height:24px;display:grid;place-items:center;border-radius:6px;color:var(--mut);transition:.12s;z-index:2}
         .del-ds:hover{background:var(--err);color:#fff}
+        .ren-ds:hover{background:var(--acc);color:var(--acc-fg)}
+        .auth-overlay{position:fixed;inset:0;background:var(--bg);z-index:1000;display:grid;place-items:center;padding:20px}
+        .auth-card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:32px;width:100%;max-width:400px;box-shadow:0 20px 50px rgba(0,0,0,0.5)}
+        .auth-card h2{margin:0 0 8px;font-size:24px;letter-spacing:-.02em}
+        .auth-card p{margin:0 0 24px;color:var(--mut)}
+        .auth-card form{display:flex;flex-direction:column;gap:16px}
+        .auth-card label{display:block;margin-bottom:6px;font-size:13px;font-weight:600;color:var(--mut)}
+        .auth-footer{margin-top:24px;text-align:center;font-size:14px;color:var(--mut)}
+        .auth-footer a{color:var(--acc);text-decoration:none;font-weight:600;cursor:pointer}
+        .auth-footer a:hover{text-decoration:underline}
+        .user-info{margin-left:auto;display:flex;align-items:center;gap:12px;padding:0 24px}
+        #logout{font-size:13px;color:var(--mut);cursor:pointer;padding:4px 8px;border:1px solid var(--line);border-radius:6px}
+        #logout:hover{background:var(--soft);color:var(--fg)}
 
         /* modal */
         .modal-wrap{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:grid;place-items:center;z-index:100;padding:20px;backdrop-filter:blur(2px)}
@@ -209,6 +222,36 @@
     </style>
 </head>
 <body>
+    <div id="auth-view" class="auth-overlay" style="display:none">
+        <div class="auth-card">
+            <h2 id="auth-title">Welcome back</h2>
+            <p id="auth-desc">Login to access your datasets</p>
+            <form id="auth-form">
+                <div>
+                    <label>Email Address</label>
+                    <input type="email" id="auth-email" class="field" placeholder="you@example.com" required>
+                </div>
+                <div>
+                    <label>Password</label>
+                    <input type="password" id="auth-password" class="field" placeholder="••••••••" required minlength="8">
+                </div>
+                <div id="cohere-key-group" style="display:none">
+                    <label>Cohere API Key</label>
+                    <input type="password" id="auth-cohere-key" class="field" placeholder="Your API key" minlength="10">
+                </div>
+                <button type="submit" class="btn" id="auth-submit">Login</button>
+            </form>
+            <div id="verify-msg" class="mut" style="display:none;margin-top:16px;font-size:13px;text-align:center;background:var(--soft);padding:10px;border-radius:8px">
+                Check your email for a verification link. <br>
+                <a id="verify-now-btn" style="color:var(--acc);font-weight:700;cursor:pointer">Verify Now (Demo)</a>
+            </div>
+            <div id="auth-error" class="err" style="margin-top:16px;font-size:13px;text-align:center"></div>
+            <div class="auth-footer">
+                <span id="auth-toggle-text">Don't have an account?</span>
+                <a id="auth-toggle-btn">Sign up</a>
+            </div>
+        </div>
+    </div>
 <aside>
     <div class="brand">
         <span class="logo"><img src="assets/Ai-Data-Analyst-Logo.png" alt="Logo"></span>
@@ -216,7 +259,7 @@
         <button id="menu" class="btn ghost" type="button" aria-label="Datasets and upload">Datasets</button>
     </div>
 
-    <div class="sec">
+    <div class="sec" style="display:none">
         <h2>User</h2>
         <input id="user" class="field" placeholder="e.g. demo" autocomplete="off">
     </div>
@@ -249,6 +292,10 @@
         <div id="view-controls" style="display:none; gap:10px;">
             <button class="btn ghost" id="btn-chat">Chat</button>
             <button class="btn ghost" id="btn-dash">Dashboard</button>
+        </div>
+        <div class="user-info">
+            <span id="current-user-email" class="mut" style="font-size:13px"></span>
+            <button id="logout">Logout</button>
         </div>
     </header>
     <div id="log" aria-live="polite">
@@ -297,7 +344,17 @@
     }
 
     async function api(path, opts = {}) {
-        const res = await fetch(path, { ...opts, headers: { "X-User-Id": $("#user").value.trim(), ...(opts.headers || {}) } });
+        const headers = { ...(opts.headers || {}) };
+        const token = localStorage.getItem("token");
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        const res = await fetch(path, { ...opts, headers });
+        
+        if (res.status === 401) {
+            logout();
+            throw new Error("Session expired. Please login again.");
+        }
+
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail || res.statusText));
         return data;
@@ -654,6 +711,20 @@
         const label = el("label", { class: "ds" }, input, el("span", {}, el("b", { textContent: title }), el("small", { textContent: meta })));
         
         if (value) {
+            const actions = el("div", { class: "ds-actions" });
+            const ren = el("button", { 
+                class: "ren-ds", 
+                type: "button", 
+                title: "Rename table",
+                onclick: (ev) => { 
+                    ev.preventDefault(); 
+                    ev.stopPropagation(); 
+                    promptRename(value); 
+                }
+            }, el("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" }, 
+                el("path", { d: "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" }),
+                el("path", { d: "M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" })
+            ));
             const del = el("button", { 
                 class: "del-ds", 
                 type: "button", 
@@ -666,10 +737,49 @@
             }, el("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" }, 
                 el("path", { d: "M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" })
             ));
-            label.append(del);
+            actions.append(ren, del);
+            label.append(actions);
         }
         
         return label;
+    }
+
+    function promptRename(oldName) {
+        const input = el("input", { class: "field", value: oldName, style: "margin-bottom:16px", autocomplete: "off" });
+        const modal = el("div", { class: "modal-wrap" },
+            el("div", { class: "modal" },
+                el("h3", { textContent: "Rename Table" }),
+                el("p", { textContent: "Enter a new name for this table:" }),
+                input,
+                el("div", { class: "modal-btns" },
+                    el("button", { class: "btn ghost", textContent: "Cancel", onclick: () => modal.remove() }),
+                    el("button", { class: "btn", textContent: "Rename", onclick: () => doRename(oldName, input.value.trim(), modal) })
+                )
+            )
+        );
+        document.body.append(modal);
+        input.focus();
+        input.select();
+        input.onkeydown = ev => { if (ev.key === "Enter") doRename(oldName, input.value.trim(), modal); };
+    }
+
+    async function doRename(oldName, newName, modal) {
+        if (!newName || oldName === newName) { modal.remove(); return; }
+        try {
+            await api(`/datasets/${oldName}`, { 
+                method: "PATCH", 
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ new_name: newName }) 
+            });
+            modal.remove();
+            if (state.table === oldName) {
+                state.table = newName;
+                updateScope();
+            }
+            await loadDatasets();
+        } catch (e) {
+            alert("Failed to rename: " + e.message);
+        }
     }
 
     function confirmDelete(tableName) {
@@ -713,10 +823,128 @@
         } catch (e) { box.append(el("p", { class: "err", textContent: e.message })); }
     }
 
+    /* ---------- Authentication ---------- */
+    let authMode = "login";
+
+    function showAuth() {
+        $("#auth-view").style.display = "grid";
+        $("#auth-error").textContent = "";
+        updateAuthUI();
+    }
+
+    function updateAuthUI() {
+        if (authMode === "login") {
+            $("#auth-title").textContent = "Welcome back";
+            $("#auth-desc").textContent = "Login to access your datasets";
+            $("#auth-submit").textContent = "Login";
+            $("#auth-toggle-text").textContent = "Don't have an account?";
+            $("#auth-toggle-btn").textContent = "Sign up";
+            $("#cohere-key-group").style.display = "none";
+            $("#auth-cohere-key").required = false;
+        } else {
+            $("#auth-title").textContent = "Create an account";
+            $("#auth-desc").textContent = "Start analyzing your data today";
+            $("#auth-submit").textContent = "Sign up";
+            $("#auth-toggle-text").textContent = "Already have an account?";
+            $("#auth-toggle-btn").textContent = "Login";
+            $("#cohere-key-group").style.display = "block";
+            $("#auth-cohere-key").required = true;
+        }
+    }
+
+    $("#auth-toggle-btn").onclick = () => {
+        authMode = authMode === "login" ? "register" : "login";
+        updateAuthUI();
+        $("#auth-error").textContent = "";
+    };
+
+    $("#auth-form").onsubmit = async ev => {
+        ev.preventDefault();
+        const email = $("#auth-email").value;
+        const password = $("#auth-password").value;
+        const cohere_api_key = $("#auth-cohere-key").value;
+        const error = $("#auth-error");
+        error.textContent = "";
+        $("#verify-msg").style.display = "none";
+
+        try {
+            if (authMode === "register") {
+                await api("/auth/register", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email, password, cohere_api_key })
+                });
+                error.className = "mut";
+                error.textContent = "Account created. Please verify your email.";
+                $("#verify-msg").style.display = "block";
+                return;
+            }
+
+            const params = new URLSearchParams();
+            params.append("username", email);
+            params.append("password", password);
+
+            const r = await api("/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: params
+            });
+
+            localStorage.setItem("token", r.access_token);
+            localStorage.setItem("email", email);
+            onAuthenticated();
+        } catch (e) {
+            error.className = "err";
+            error.textContent = e.message;
+            if (e.message.includes("verified")) {
+                $("#verify-msg").style.display = "block";
+            }
+        }
+    };
+
+    $("#verify-now-btn").onclick = async () => {
+        const email = $("#auth-email").value;
+        try {
+            await api(`/auth/verify?email=${encodeURIComponent(email)}`, { method: "POST" });
+            $("#auth-error").className = "mut";
+            $("#auth-error").textContent = "Email verified! You can now login.";
+            $("#verify-msg").style.display = "none";
+            authMode = "login";
+            updateAuthUI();
+        } catch (e) {
+            $("#auth-error").className = "err";
+            $("#auth-error").textContent = e.message;
+        }
+    };
+
     function resetConversation() {
         state.history = [];
         $("#thread").replaceChildren();
         setEmpty(true);
+    }
+
+    function onAuthenticated() {
+        $("#auth-view").style.display = "none";
+        $("#current-user-email").textContent = localStorage.getItem("email");
+        loadDatasets();
+    }
+
+    function logout() {
+        localStorage.removeItem("token");
+        localStorage.removeItem("email");
+        state.table = "";
+        resetConversation();
+        showAuth();
+    }
+
+    $("#logout").onclick = logout;
+
+    function checkAuth() {
+        if (localStorage.getItem("token")) {
+            onAuthenticated();
+        } else {
+            showAuth();
+        }
     }
 
     $("#ask").onsubmit = ev => { ev.preventDefault(); const q = $("#q").value; $("#q").value = ""; ask(q); };
@@ -751,8 +979,7 @@
     };
 
     for (const text of SUGGESTIONS) $("#suggestions").append(el("button", { class: "sugg", type: "button", textContent: text, onclick: () => ask(text) }));
-    $("#user").value = localStorage.getItem("uid") || "demo";
-    loadDatasets();
+    checkAuth();
 </script>
 </body>
 </html>
