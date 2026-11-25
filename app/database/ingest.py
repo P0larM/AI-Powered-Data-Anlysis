@@ -116,6 +116,26 @@ def get_user_datasets(conn, user_id):
     ]
 
 
+def delete_dataset(conn, user_id, table_name):
+    """
+    Remove a dataset from the user's schema and the metadata table.
+    """
+    schema = schema_name(user_id)
+    table = safe_identifiers([table_name])[0]
+    qualified = sql.SQL("{}.{}").format(sql.Identifier(schema), sql.Identifier(table))
+
+    with conn.transaction():
+        with conn.cursor() as cur:
+            _ensure_meta_table(cur)
+            # Remove from metadata
+            cur.execute(
+                "DELETE FROM app_meta.datasets WHERE user_id = %s AND table_name = %s",
+                (str(user_id), table),
+            )
+            # Drop the physical table
+            cur.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(qualified))
+
+
 # ---------- ingestion --------------------------------------------------------
 
 def ingest_dataframe(conn, df, user_id, table_name,

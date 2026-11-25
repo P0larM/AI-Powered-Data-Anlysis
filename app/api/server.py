@@ -9,16 +9,21 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app.ai.assistant import answer_question
 from app.api.uploads import MAX_UPLOAD_BYTES, UploadError, parse_upload
 from app.database.connection import get_ingest_connection, get_query_connection
-from app.database.ingest import get_user_datasets, ingest_dataframe, safe_identifiers
+from app.database.ingest import delete_dataset, get_user_datasets, ingest_dataframe, safe_identifiers
 from app.database.tenancy import schema_name
+from app.api.dashboard import get_dashboard_data
 from fastapi.responses import FileResponse
 
 app = FastAPI(title="AI Data Analyst")
+
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")
 
 
 def current_user(x_user_id: Annotated[str, Header()]):
@@ -96,6 +101,42 @@ def list_datasets(
         for dataset in datasets:
             dataset.pop("profile", None)
     return datasets
+
+
+@app.delete("/datasets/{table_name}", status_code=204)
+def remove_dataset(
+        table_name: str,
+        user_id: Annotated[str, Depends(current_user)],
+):
+    """Permanently delete a dataset."""
+    with get_ingest_connection() as conn:
+        # Check existence first
+        datasets = get_user_datasets(conn, user_id)
+        if not any(d["table_name"] == table_name for d in datasets):
+            raise HTTPException(status_code=404, detail=f"Dataset '{table_name}' not found.")
+
+        delete_dataset(conn, user_id, table_name)
+    return
+
+
+@app.get("/datasets/{table_name}/dashboard")
+def get_dataset_dashboard(
+        table_name: str,
+        user_id: Annotated[str, Depends(current_user)],
+):
+    """Compute detailed dashboard statistics for a dataset."""
+    with get_ingest_connection() as conn:
+        datasets = get_user_datasets(conn, user_id)
+        dataset = next((d for d in datasets if d["table_name"] == table_name), None)
+    
+    if not dataset:
+        raise HTTPException(status_code=404, detail=f"Dataset '{table_name}' not found.")
+    
+    with get_query_connection() as query_conn:
+        try:
+            return get_dashboard_data(query_conn, user_id, table_name, dataset["profile"])
+        except Exception as error:
+            raise HTTPException(status_code=500, detail=str(error))
 
 
 class Turn(BaseModel):
