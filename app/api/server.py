@@ -20,7 +20,7 @@ from app.api.uploads import MAX_UPLOAD_BYTES, UploadError, parse_upload
 from app.database.connection import get_ingest_connection, get_query_connection
 from app.database.ingest import delete_dataset, get_user_datasets, ingest_dataframe, safe_identifiers, rename_dataset
 from app.database.tenancy import schema_name
-from app.api.dashboard import get_dashboard_data
+from app.api.dashboard import get_dashboard_data, get_variable_models
 from app.database.auth import ensure_auth_tables, create_user, get_user_by_email, verify_password, get_user_by_id, mark_user_verified
 from fastapi.responses import FileResponse
 
@@ -275,6 +275,32 @@ def get_dataset_dashboard(
     with get_query_connection() as query_conn:
         try:
             return get_dashboard_data(query_conn, user_id, table_name, dataset["profile"])
+        except Exception as error:
+            raise HTTPException(status_code=500, detail=str(error))
+
+
+@app.get("/datasets/{table_name}/variables/{column}/models")
+def get_variable_models_endpoint(
+        table_name: str,
+        column: str,
+        user: Annotated[dict, Depends(current_user)],
+):
+    """Simple linear or logistic regressions with one column as the outcome."""
+    user_id = str(user["id"])
+    with get_ingest_connection() as conn:
+        datasets = get_user_datasets(conn, user_id)
+        dataset = next((d for d in datasets if d["table_name"] == table_name), None)
+
+    if not dataset:
+        raise HTTPException(status_code=404, detail=f"Dataset '{table_name}' not found.")
+    if column not in dataset["profile"]["columns"]:
+        raise HTTPException(status_code=404, detail=f"Column '{column}' not found in '{table_name}'.")
+
+    with get_query_connection() as query_conn:
+        try:
+            return get_variable_models(query_conn, user_id, table_name, dataset["profile"], column)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error))
         except Exception as error:
             raise HTTPException(status_code=500, detail=str(error))
 

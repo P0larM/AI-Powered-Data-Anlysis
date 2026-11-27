@@ -29,3 +29,10 @@ __pycache__/
 .pytest_cache/
 
 evals/last_run.json
+# Agent skills (installed locally, not part of the project)
+/skills/
+/skills-lock.json
+/data/skills/
+/.*/skills/
+/.posit/assistant/skills/
+/.tabnine/agent/skills/

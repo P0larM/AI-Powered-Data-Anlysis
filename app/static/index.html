@@ -2,261 +2,623 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0C0E12">
+    <meta name="color-scheme" content="dark">
     <title>AI Data Analyst</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fragment+Mono&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root{
-            --bg:#000000; --panel:#111111; --fg:#ffffff; --mut:#a1a1aa; --line:#27272a; --soft:#18181b;
-            --acc:#facc15; --acc-soft:#422006; --acc-fg:#000000;
-            --warn:#fef08a; --warn-bg:#422006; --warn-line:#713f12; --err:#f87171;
-            --kw:#facc15; --str:#4ade80; --num:#fbbf24;
-            --shadow:0 1px 3px rgba(0,0,0,0.5);
-            --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+            color-scheme:dark;
+            interpolate-size:allow-keywords;
+
+            /* surfaces, darkest to lightest */
+            --bg:#0C0E12; --side:#101217; --panel:#14171D; --raised:#1A1E26; --hover:rgba(255,255,255,.045);
+            --line:rgba(255,255,255,.07); --line-2:rgba(255,255,255,.12);
+            /* text */
+            --text:#E7E9ED; --text-2:#A2A8B4; --text-3:#7A808D;
+            /* accent: electric indigo */
+            --accent:#F2C94C; --accent-btn:#F2C94C; --accent-btn-hi:#F7D66E; --accent-fg:#17140A;
+            --accent-soft:rgba(242,201,76,.1); --accent-line:rgba(242,201,76,.4);
+            /* data + status (validated against --panel for CVD) */
+            --good:#4FC48F; --good-soft:rgba(79,196,143,.12);
+            --warn:#F0915A; --warn-soft:rgba(240,145,90,.07); --warn-line:rgba(240,145,90,.24);
+            /* correlation sign: blue <-> red with a grey midpoint (CVD-validated on --panel) */
+            --neg:#5B93EE; --pos:#E8705A; --mid:#2A2F39;
+            --err:#F07A7A; --err-soft:rgba(240,122,122,.08);
+            /* code */
+            --code-bg:#0A0C10; --code-fg:#D4D8E0; --kw:#F2C94C; --str:#7FD6A8; --num:#8DB8F5;
+
+            --sans:"Schibsted Grotesk",ui-sans-serif,system-ui,"Segoe UI",sans-serif;
+            --mono:"Fragment Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+            --r-lg:12px; --r-md:8px; --r-sm:6px;
+
+            /* motion */
+            --ease-out:cubic-bezier(.23,1,.32,1);
+            --ease-in-out:cubic-bezier(.77,0,.175,1);
+            --ease-drawer:cubic-bezier(.32,.72,0,1);
+            --rise:6px;
         }
-        @media (prefers-color-scheme:dark){:root{
-            --bg:#000000; --panel:#111111; --fg:#ffffff; --mut:#a1a1aa; --line:#27272a; --soft:#18181b;
-            --acc:#facc15; --acc-soft:#422006; --acc-fg:#000000;
-            --warn:#fef08a; --warn-bg:#422006; --warn-line:#713f12; --err:#f87171;
-            --kw:#facc15; --str:#4ade80; --num:#fbbf24;
-            --shadow:0 1px 3px rgba(0,0,0,0.5);
-        }}
+
         *{box-sizing:border-box}
         html,body{height:100%}
-        body{margin:0;font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--fg);
-            display:grid;grid-template-columns:304px 1fr;height:100vh;height:100dvh;-webkit-font-smoothing:antialiased}
+        body{margin:0;font:15px/1.55 var(--sans);background:var(--bg);color:var(--text);
+            display:grid;grid-template-columns:280px minmax(0,1fr);height:100vh;height:100dvh;overflow:hidden;
+            -webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
         button,input{font:inherit;color:inherit}
-        .mut{color:var(--mut)}
+        button{-webkit-user-select:none;user-select:none}
+        :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+        .mut{color:var(--text-2)}
+        .spacer{flex:1}
+        .err{color:var(--err)}
+        .tnum,table{font-variant-numeric:tabular-nums}
+        ::selection{background:rgba(242,201,76,.3);color:#fff}
+        *{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.12) transparent}
+
+        @keyframes rise{from{opacity:0;transform:translateY(var(--rise))}}
+        @keyframes fade{from{opacity:0}}
+        @keyframes grow-x{from{transform:scaleX(0)}}
+        @keyframes grow-y{from{transform:scaleY(0)}}
+
+        /* ---------- buttons & fields ---------- */
+        .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:9px 16px;border:0;border-radius:var(--r-md);
+            background:var(--accent-btn);color:var(--accent-fg);font-weight:600;font-size:14px;cursor:pointer;
+            transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .12s var(--ease-out)}
+        .btn:active:not(:disabled){transform:scale(.97)}
+        .btn:disabled{opacity:.45;cursor:default}
+        .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line-2);font-weight:500}
+        .btn.danger{background:#C9503F;color:#fff}
+        @media (hover:hover) and (pointer:fine){
+            .btn:hover:not(:disabled){background:var(--accent-btn-hi)}
+            .btn.ghost:hover:not(:disabled){background:var(--hover);border-color:rgba(255,255,255,.18)}
+            .btn.danger:hover:not(:disabled){background:#D85C4A}
+        }
+        .field{width:100%;padding:10px 12px;border:1px solid var(--line-2);border-radius:var(--r-md);background:var(--bg);
+            transition:border-color .15s ease,box-shadow .15s ease}
+        .field::placeholder{color:var(--text-3)}
+        .field:focus{outline:none;border-color:var(--accent-line);box-shadow:0 0 0 3px var(--accent-soft)}
+        .icon-btn{display:grid;place-items:center;width:32px;height:32px;border:0;border-radius:var(--r-sm);background:transparent;color:var(--text-2);cursor:pointer;
+            transition:background-color .15s ease,color .15s ease}
+        @media (hover:hover) and (pointer:fine){.icon-btn:hover{background:var(--hover);color:var(--text)}}
 
         /* ---------- sidebar ---------- */
-        aside{background:var(--panel);border-right:1px solid var(--line);padding:20px 16px;overflow:auto;display:flex;flex-direction:column;gap:20px}
-        .brand{display:flex;align-items:center;gap:12px}
-        #menu{display:none;margin-left:auto;padding:6px 12px;font-size:13px}
-        .logo{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;flex:none;overflow:hidden}
-        .logo img{width:100%;height:100%;object-fit:cover}
-        .brand b{display:block;font-size:16px;letter-spacing:-.01em}
-        .brand small{color:var(--mut);font-size:12px}
-        .sec h2{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:0 0 8px}
-        .field{width:100%;padding:8px 11px;border:1px solid var(--line);border-radius:9px;background:var(--bg)}
-        .field:focus{outline:2px solid var(--acc);outline-offset:-1px}
-        .ds{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;cursor:pointer;transition:.12s;position:relative}
-        .ds:hover{background:var(--soft)}
-        .ds:has(input:checked){border-color:var(--acc);background:var(--acc-soft)}
-        .ds input{accent-color:var(--acc);margin:0}
-        .ds b{display:block;font-weight:600;line-height:1.2}
-        .ds small{color:var(--mut);font-size:12px}
-        .drop{display:flex;flex-direction:column;gap:8px}
-        input[type=file]{width:100%;font-size:13px;color:var(--mut)}
-        input[type=file]::file-selector-button{margin-right:10px;padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:var(--soft);color:var(--fg);cursor:pointer}
-        .check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mut)}
-        .check input{accent-color:var(--acc)}
-        .btn{padding:8px 14px;border:0;border-radius:9px;background:var(--acc);color:var(--acc-fg);font-weight:600;cursor:pointer}
-        .btn:hover{filter:brightness(1.08)}
-        .btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line);font-weight:500}
-        .btn.ghost:hover{background:var(--soft)}
-        .btn:disabled{opacity:.5;cursor:default}
-        #upmsg{font-size:13px;margin:0;min-height:1em}
-        .ds:hover .del-ds, .ds:hover .ren-ds{opacity:1}
-        .del-ds, .ren-ds{opacity:0;margin-left:8px;width:24px;height:24px;display:grid;place-items:center;border-radius:6px;color:var(--mut);transition:.12s;z-index:2}
-        .del-ds:hover{background:var(--err);color:#fff}
-        .ren-ds:hover{background:var(--acc);color:var(--acc-fg)}
-        .auth-overlay{position:fixed;inset:0;background:var(--bg);z-index:1000;display:grid;place-items:center;padding:20px}
-        .auth-card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:32px;width:100%;max-width:400px;box-shadow:0 20px 50px rgba(0,0,0,0.5)}
-        .auth-card h2{margin:0 0 8px;font-size:24px;letter-spacing:-.02em}
-        .auth-card p{margin:0 0 24px;color:var(--mut)}
-        .auth-card form{display:flex;flex-direction:column;gap:16px}
-        .auth-card label{display:block;margin-bottom:6px;font-size:13px;font-weight:600;color:var(--mut)}
-        .auth-footer{margin-top:24px;text-align:center;font-size:14px;color:var(--mut)}
-        .auth-footer a{color:var(--acc);text-decoration:none;font-weight:600;cursor:pointer}
-        .auth-footer a:hover{text-decoration:underline}
-        .user-info{margin-left:auto;display:flex;align-items:center;gap:12px;padding:0 24px}
-        #logout{font-size:13px;color:var(--mut);cursor:pointer;padding:4px 8px;border:1px solid var(--line);border-radius:6px}
-        #logout:hover{background:var(--soft);color:var(--fg)}
+        aside{background:var(--side);border-right:1px solid var(--line);padding:18px 12px 12px;overflow:auto;display:flex;flex-direction:column;gap:24px}
+        .brand{display:flex;align-items:center;gap:11px;padding:2px 6px}
+        .logo{width:32px;height:32px;border-radius:8px;flex:none;overflow:hidden;background:var(--raised);border:1px solid var(--line)}
+        .logo img{width:100%;height:100%;object-fit:cover;display:block}
+        .brand b{display:block;font-size:15px;font-weight:700;letter-spacing:-.015em;line-height:1.2}
+        .brand small{display:block;color:var(--text-3);font-size:12.5px;line-height:1.3}
+        .sec h2{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;font-weight:600;color:var(--text-3);margin:0 0 6px;padding:0 8px}
 
-        /* modal */
-        .modal-wrap{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:grid;place-items:center;z-index:100;padding:20px;backdrop-filter:blur(2px)}
-        .modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px;max-width:400px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,0.5);animation:rise .2s ease-out}
-        .modal h3{margin:0 0 12px;font-size:18px}
-        .modal p{margin:0 0 24px;color:var(--mut)}
-        .modal-btns{display:flex;gap:12px;justify-content:flex-end}
+        .ds{display:flex;align-items:center;gap:10px;padding:8px 6px 8px 12px;border-radius:var(--r-md);margin-bottom:1px;cursor:pointer;position:relative;
+            transition:background-color .15s ease}
+        .ds::before{content:"";position:absolute;left:3px;top:9px;bottom:9px;width:2px;border-radius:2px;background:var(--accent);
+            transform:scaleY(0);transition:transform .2s var(--ease-out)}
+        @media (hover:hover) and (pointer:fine){.ds:hover{background:var(--hover)}}
+        .ds:has(input:checked){background:var(--raised)}
+        .ds:has(input:checked)::before{transform:none}
+        .ds:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:-2px}
+        .ds input{position:absolute;opacity:0;pointer-events:none}
+        .ds>span{flex:1;min-width:0}
+        .ds b{display:block;font-weight:500;font-size:14px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .ds:has(input:checked) b{font-weight:600}
+        .ds small{display:block;color:var(--text-3);font-size:12px;line-height:1.35}
+        .ds-actions{display:flex;gap:0}
+        .del-ds,.ren-ds{opacity:0;width:26px;height:26px;display:grid;place-items:center;border:0;border-radius:var(--r-sm);background:transparent;color:var(--text-3);cursor:pointer;
+            transition:opacity .15s ease,background-color .15s ease,color .15s ease}
+        .ds:hover .del-ds,.ds:hover .ren-ds,.del-ds:focus-visible,.ren-ds:focus-visible{opacity:1}
+        @media (hover:none){.del-ds,.ren-ds{opacity:1}}
+        .ren-ds:hover{background:var(--hover);color:var(--text)}
+        .del-ds:hover{background:var(--err-soft);color:var(--err)}
+        #datasets>p{padding:0 8px;margin:4px 0;font-size:13px;color:var(--text-3)}
+        .ds-skel{height:44px;margin:0 0 2px;border-radius:var(--r-md);background:var(--hover)}
+
+        .drop-zone{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:16px 12px;text-align:center;
+            border:1px dashed var(--line-2);border-radius:var(--r-md);color:var(--text-2);font-size:13px;cursor:pointer;
+            transition:border-color .15s ease,background-color .15s ease}
+        .drop-zone svg{color:var(--text-3);margin-bottom:2px}
+        .drop-zone b{font-weight:500;color:var(--text);overflow-wrap:anywhere}
+        .drop-zone small{color:var(--text-3);font-size:12px}
+        .drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+        .drop-zone:hover,.drop-zone.over{border-color:var(--accent-line);background:var(--accent-soft)}
+        .drop-zone:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+        .drop-zone.has-file{border-style:solid;border-color:var(--line-2)}
+        .drop{display:flex;flex-direction:column;gap:10px;padding:0 4px}
+        aside .field{background:var(--panel);font-size:14px;padding:8px 11px}
+        .check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-2);cursor:pointer}
+        .check input{accent-color:var(--accent-btn);margin:0}
+        #upmsg{font-size:12.5px;margin:0;min-height:1em;color:var(--text-2)}
+        #upmsg:empty{display:none}
+        #upmsg.err{color:var(--err)}
+
+        .side-foot{display:flex;flex-direction:column;gap:6px;padding-top:12px;border-top:1px solid var(--line)}
+        #reset{justify-content:flex-start;gap:10px;border-color:transparent;color:var(--text-2);padding:8px 10px}
+        #reset:hover{color:var(--text)}
+        .user-info{display:flex;align-items:center;gap:10px;padding:6px 6px 2px 10px;min-width:0}
+        .avatar{width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:12px;font-weight:600;background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-line)}
+        #current-user-email{flex:1;min-width:0;font-size:13px;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        #logout{font-size:12.5px;color:var(--text-2);cursor:pointer;padding:5px 9px;border:1px solid var(--line-2);border-radius:var(--r-sm);background:transparent;flex:none;
+            transition:background-color .15s ease,color .15s ease}
+        @media (hover:hover) and (pointer:fine){#logout:hover{color:var(--text);background:var(--hover)}}
 
         /* ---------- main ---------- */
         main{display:flex;flex-direction:column;min-width:0;min-height:0}
-        header{display:flex;align-items:center;gap:10px;padding:14px 24px;border-bottom:1px solid var(--line);background:var(--panel)}
-        .pill{padding:3px 11px;border-radius:999px;background:var(--acc-soft);color:var(--acc);font-weight:600;font-size:13px}
-        header span.mut{font-size:13px}
-        #log{flex:1;overflow:auto;padding:28px 24px;scroll-behavior:smooth}
-        .wrap{max-width:860px;margin:0 auto}
-        #empty{text-align:center;padding:9vh 0 0}
-        #empty h2{font-size:26px;letter-spacing:-.02em;margin:0 0 6px}
-        #empty p{color:var(--mut);margin:0 0 24px}
-        .chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
-        .sugg{padding:9px 15px;border:1px solid var(--line);border-radius:999px;background:var(--panel);cursor:pointer;font-size:14px;box-shadow:var(--shadow)}
-        .sugg:hover{border-color:var(--acc);color:var(--acc)}
+        header{display:flex;align-items:center;gap:14px;min-height:60px;padding:10px 28px;border-bottom:1px solid var(--line)}
+        #menu{display:none}
+        .scope{display:flex;align-items:baseline;gap:14px;min-width:0}
+        #scope{font-size:16px;font-weight:600;letter-spacing:-.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .scope-meta{display:flex;gap:12px;font-size:13px;color:var(--text-3);white-space:nowrap}
+        #hint{font-size:13px;white-space:nowrap;color:var(--text-3);padding-left:14px;border-left:1px solid var(--line)}
 
-        .msg{margin:0 0 18px;animation:rise .25s ease-out;scroll-margin-top:18px}
-        @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+        .seg{position:relative;display:grid;grid-template-columns:1fr 1fr;padding:3px;border-radius:var(--r-md);background:var(--panel);border:1px solid var(--line)}
+        .seg-ind{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);border-radius:6px;background:var(--raised);border:1px solid var(--line-2);
+            transition:transform .25s var(--ease-out)}
+        .seg:has(#btn-dash:not(.ghost)) .seg-ind{transform:translateX(100%)}
+        .seg .btn{position:relative;padding:5px 16px;font-size:13.5px;border:0;border-radius:6px;background:transparent;color:var(--text);font-weight:500}
+        .seg .btn.ghost{color:var(--text-3)}
+        @media (hover:hover) and (pointer:fine){.seg .btn:hover:not(:disabled){background:transparent;border-color:transparent}.seg .btn.ghost:hover:not(:disabled){color:var(--text)}}
+        .seg .btn:active:not(:disabled){transform:none}
+
+        #log{flex:1;overflow:auto;padding:40px 28px 24px;scroll-behavior:smooth;overscroll-behavior:contain}
+        .wrap{max-width:860px;margin:0 auto}
+        .view-in{animation:rise .26s var(--ease-out) both}
+
+        /* empty state */
+        #empty{padding:9vh 0 0}
+        #empty h2{font-size:34px;line-height:1.12;letter-spacing:-.03em;font-weight:600;margin:0 0 10px}
+        #empty>p{color:var(--text-2);margin:0 0 28px;font-size:15.5px;max-width:56ch}
+        #empty>*{animation:rise .4s var(--ease-out) both}
+        #empty>p{animation-delay:50ms}
+        .chips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;animation-delay:100ms !important}
+        .sugg{display:flex;align-items:center;gap:12px;padding:13px 14px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--panel);cursor:pointer;
+            font-size:14px;text-align:left;line-height:1.35;color:var(--text-2);
+            transition:border-color .15s ease,color .15s ease,background-color .15s ease,transform .12s var(--ease-out)}
+        .sugg svg{flex:none;color:var(--text-3);transition:color .15s ease,transform .2s var(--ease-out)}
+        .sugg:active{transform:scale(.985)}
+        @media (hover:hover) and (pointer:fine){
+            .sugg:hover{border-color:var(--line-2);background:var(--raised);color:var(--text)}
+            .sugg:hover svg{color:var(--accent);transform:translateX(2px)}
+        }
+
+        /* ---------- messages ---------- */
+        .msg{margin:0 0 32px;scroll-margin-top:24px;animation:rise .3s var(--ease-out) both}
         .msg.user{display:flex;justify-content:flex-end}
-        .msg.user span{max-width:80%;background:var(--acc);color:var(--acc-fg);padding:9px 15px;border-radius:16px 16px 4px 16px;overflow-wrap:anywhere}
-        .msg.bot .card{background:var(--panel);border:1px solid var(--line);border-radius:16px 16px 16px 4px;padding:16px 18px;box-shadow:var(--shadow)}
-        .msg.bot .foot{margin-top:12px;font-size:12px;color:var(--mut)}
-        .dots span{display:inline-block;width:7px;height:7px;margin-right:4px;border-radius:50%;background:var(--mut);animation:blink 1.2s infinite both}
-        .dots span:nth-child(2){animation-delay:.2s}.dots span:nth-child(3){animation-delay:.4s}
-        @keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
-        .err{color:var(--err)}
+        .msg.user span{max-width:76%;background:var(--raised);border:1px solid var(--line);color:var(--text);padding:10px 15px;border-radius:12px 12px 4px 12px;overflow-wrap:anywhere;white-space:pre-wrap}
+
+        .msg.bot{display:grid;grid-template-columns:28px minmax(0,1fr);gap:14px}
+        .bot-mark{width:28px;height:28px;border-radius:7px;overflow:hidden;border:1px solid var(--line);background:var(--raised)}
+        .bot-mark img{width:100%;height:100%;object-fit:cover;display:block}
+        .bot-name{font-size:13px;font-weight:600;color:var(--text-2);margin:4px 0 8px;line-height:20px}
+        .msg.bot .card{min-width:0}
+        .card>*{animation:rise .34s var(--ease-out) both;animation-delay:calc(var(--i,0) * 60ms)}
+        .msg.bot .card.err{color:var(--err);background:var(--err-soft);border:1px solid rgba(240,122,122,.2);border-radius:var(--r-md);padding:12px 14px;font-size:14px}
+        #dashboard>.card.err{color:var(--err);background:var(--err-soft);border:1px solid rgba(240,122,122,.2);border-radius:var(--r-md);padding:12px 14px}
+        .msg.bot .foot{margin-top:14px;font-size:12.5px;color:var(--text-3)}
+
+        /* thinking */
+        .thinking{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--text-2)}
+        .pulse{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 1.4s ease-in-out infinite}
+        @keyframes pulse{0%,100%{opacity:.35;transform:scale(.85)}50%{opacity:1;transform:none}}
+        .elapsed{color:var(--text-3);font-size:13px}
+        .skel{display:flex;flex-direction:column;gap:9px;margin-top:16px;max-width:560px}
+        .skel i{display:block;height:10px;border-radius:4px;background:var(--panel);position:relative;overflow:hidden}
+        .skel i:nth-child(2){width:86%}.skel i:nth-child(3){width:62%}
+        .skel i::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.05),transparent);
+            transform:translateX(-100%);animation:shimmer 1.6s linear infinite}
+        @keyframes shimmer{to{transform:translateX(100%)}}
 
         /* rendered answer text */
+        .md{font-size:15.5px;line-height:1.65;max-width:72ch;color:var(--text)}
         .md>*:first-child{margin-top:0}.md>*:last-child{margin-bottom:0}
-        .md p{margin:0 0 10px;white-space:pre-line;overflow-wrap:anywhere}
-        .md h3,.md h4,.md h5{margin:14px 0 6px;letter-spacing:-.01em}
-        .md h3{font-size:17px}.md h4{font-size:15.5px}.md h5{font-size:14.5px}
-        .md ul,.md ol{margin:0 0 10px;padding-left:22px}.md li{margin:2px 0}
-        .md code{font-family:var(--mono);font-size:13px;background:var(--soft);padding:1px 6px;border-radius:5px}
+        .md p{margin:0 0 12px;white-space:pre-line;overflow-wrap:anywhere}
+        .md h3,.md h4,.md h5{margin:20px 0 6px;letter-spacing:-.015em;font-weight:600}
+        .md h3{font-size:18px}.md h4{font-size:16px}.md h5{font-size:15px}
+        .md ul,.md ol{margin:0 0 12px;padding-left:22px}.md li{margin:4px 0}
+        .md li::marker{color:var(--text-3)}
+        .md strong{font-weight:600;color:#fff}
+        .md code{font-family:var(--mono);font-size:13px;background:var(--raised);border:1px solid var(--line);padding:1px 6px;border-radius:5px}
 
         /* tables */
-        .scroll{overflow:auto;max-height:300px;width:100%;max-width:100%;border:1px solid var(--line);border-radius:10px;margin:8px 0 10px}
-        .scroll.md-table{max-height:none}
-        table{border-collapse:collapse;min-width:260px;font-size:13.5px}
-        th,td{padding:7px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
-        th{position:sticky;top:0;background:var(--soft);font-weight:600;font-size:12.5px;color:var(--mut)}
+        .scroll{overflow:auto;max-height:340px;width:100%;max-width:100%;border:1px solid var(--line);border-radius:var(--r-md);margin:10px 0 4px;background:var(--bg)}
+        .scroll.md-table{max-height:none;background:var(--panel)}
+        table{border-collapse:collapse;min-width:100%;font-size:13.5px}
+        th,td{padding:8px 14px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+        th{position:sticky;top:0;background:var(--raised);font-weight:500;font-size:12.5px;color:var(--text-2);z-index:1}
         tr:last-child td{border-bottom:0}
-        tbody tr:hover td{background:var(--soft)}
-        td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+        tbody tr{transition:background-color .12s ease}
+        tbody tr:hover td{background:var(--hover)}
+        td.num,th.num{text-align:right}
+        td.sig{color:var(--good);font-weight:600}
+        .yes,.no{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:500}
+        .yes{color:var(--good)}.no{color:var(--text-3)}
+        .yes::before,.no::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
 
-        /* details blocks */
-        details{margin-top:10px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
-        details>summary{cursor:pointer;list-style:none;padding:9px 14px;font-size:13px;font-weight:600;color:var(--mut);display:flex;align-items:center;gap:8px}
+        /* result panels (query + analysis) */
+        details{margin-top:14px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--panel)}
+        details::details-content{block-size:0;overflow-y:clip;transition:block-size .3s var(--ease-out),content-visibility .3s allow-discrete}
+        details[open]::details-content{block-size:auto}
+        details>summary{cursor:pointer;list-style:none;padding:12px 16px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:10px;border-radius:var(--r-lg);
+            transition:background-color .15s ease}
+        @media (hover:hover) and (pointer:fine){details>summary:hover{background:var(--hover)}}
         details>summary::-webkit-details-marker{display:none}
-        details>summary::before{content:"▸";font-size:11px;transition:transform .15s}
-        details[open]>summary::before{transform:rotate(90deg)}
-        details>.inner{padding:2px 14px 14px}
-        details details{background:var(--panel)}
-        .sub{font-size:12px;font-weight:600;color:var(--mut);margin:12px 0 2px;text-transform:uppercase;letter-spacing:.04em}
-        pre{margin:6px 0;padding:11px 13px;border:1px solid var(--line);border-radius:10px;background:var(--panel);overflow:auto;font:12.5px/1.55 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
-        .kw{color:var(--kw);font-weight:600}.str{color:var(--str)}.sn{color:var(--num)}
+        details>summary::after{content:"";margin-left:auto;flex:none;width:7px;height:7px;border-right:1.5px solid var(--text-3);border-bottom:1.5px solid var(--text-3);
+            transform:translateY(-2px) rotate(45deg);transition:transform .25s var(--ease-out)}
+        details[open]>summary::after{transform:translateY(1px) rotate(-135deg)}
+        details>summary .cnt{font-weight:400;color:var(--text-3);font-size:13px}
+        .kind{display:grid;place-items:center;width:22px;height:22px;border-radius:6px;flex:none;background:var(--raised);color:var(--text-2);border:1px solid var(--line)}
+        details.analysis>summary .kind{background:var(--accent-soft);color:var(--accent);border-color:var(--accent-line)}
+        details>.inner{padding:2px 16px 16px}
+        details details{background:var(--bg);border-radius:var(--r-md);margin-top:14px}
+        details details>summary{font-size:13px;font-weight:500;color:var(--text-2);padding:9px 14px;border-radius:var(--r-md)}
+        .sub{font-size:13px;font-weight:500;color:var(--text-2);margin:18px 0 6px}
 
-        /* chart */
-        .bar{display:grid;grid-template-columns:minmax(70px,28%) 1fr auto;align-items:center;gap:10px;font-size:13px;margin:5px 0}
-        .bar .lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mut)}
-        .track{height:16px;background:var(--soft);border-radius:6px;overflow:hidden}
-        .fill{height:100%;background:var(--acc);border-radius:6px}
-        .bar b{font-variant-numeric:tabular-nums;min-width:3ch;text-align:right}
+        .code{position:relative;margin:10px 0 4px}
+        pre{margin:0;padding:14px 16px;border-radius:var(--r-md);background:var(--code-bg);border:1px solid var(--line);color:var(--code-fg);overflow:auto;font:12.5px/1.7 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
+        .code pre{padding-right:72px}
+        .raw-json{margin-top:8px;max-height:320px}
+        .kw{color:var(--kw)}.str{color:var(--str)}.sn{color:var(--num)}
+        .copy{position:absolute;top:8px;right:8px;padding:4px 9px;font-size:12px;font-weight:500;border:1px solid var(--line-2);border-radius:var(--r-sm);
+            background:var(--raised);color:var(--text-2);cursor:pointer;opacity:0;transition:opacity .15s ease,color .15s ease,background-color .15s ease}
+        .code:hover .copy,.copy:focus-visible,.copy.done{opacity:1}
+        @media (hover:none){.copy{opacity:1}}
+        .copy:hover{color:var(--text)}
+        .copy.done{color:var(--good);border-color:rgba(79,196,143,.3)}
 
-        /* analysis */
-        .metrics{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
-        .metric{padding:6px 11px;border:1px solid var(--line);border-radius:10px;background:var(--panel);line-height:1.25}
-        .metric i{display:block;font-style:normal;font-size:11px;color:var(--mut)}
-        .metric b{font-size:15px;font-variant-numeric:tabular-nums}
+        /* key findings: the headline statistics */
+        .findings{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin:4px 0 4px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
+        .finding{display:flex;flex-direction:column;gap:2px;padding:14px 16px;background:var(--bg);min-width:0;animation:fade .4s var(--ease-out) both;animation-delay:calc(120ms + var(--i,0) * 50ms)}
+        .finding,.metric,.var-stats div,.kpi{box-shadow:1px 0 0 var(--line),0 1px 0 var(--line)}
+        .finding>span{font-size:12.5px;color:var(--text-2);line-height:1.35}
+        .finding b{font-size:24px;font-weight:600;letter-spacing:-.02em;line-height:1.25;overflow-wrap:anywhere}
+        .finding em{font-style:normal;font-size:12.5px;color:var(--text-3)}
+        .pill{align-self:flex-start;display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:2px 8px 2px 6px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;
+            background:var(--hover);color:var(--text-2);border:1px solid var(--line)}
+        .pill.good{background:var(--good-soft);color:var(--good);border-color:rgba(79,196,143,.25)}
+        .pill svg{flex:none}
 
-        /* dashboard */
-        .dash-view{animation:rise .25s ease-out; padding: 20px 0}
-        .dash-layout{display:grid; grid-template-columns: 1fr 1.5fr; gap:24px; align-items: start}
-        .dash-card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow);height:100%;box-sizing:border-box}
-        .dash-card h3{margin:0 0 16px;font-size:15px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
-        
-        .stat-group{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-        .stat-item{display:flex;flex-direction:column}
-        .stat-item i{font-style:normal;font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.02em;margin-bottom:2px}
-        .stat-item b{font-size:26px;letter-spacing:-.02em}
-        
-        .q-grid{display:flex; flex-direction:column; gap:20px; align-items:center}
-        .q-ring-wrap{display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center}
-        .q-ring{position:relative; width:120px; height:120px; display:grid; place-items:center}
-        .q-ring svg{transform: rotate(-90deg); width:120px; height:120px}
-        .q-ring circle{fill:none; stroke-width:10; stroke-linecap:round}
-        .q-ring .q-bg{stroke:#E5E7EB}
-        .q-ring .q-prog{stroke:#10B981; transition: stroke-dashoffset 0.8s ease-in-out}
-        .q-ring b{position:absolute; font-size:24px; font-variant-numeric:tabular-nums; color:var(--fg); font-weight:700}
-        .q-ring-wrap span{font-size:14px; color:var(--mut); font-weight:700; text-transform:uppercase; letter-spacing:0.05em}
+        /* bar chart */
+        .bars{margin:6px 0 14px}
+        .bars .sub{margin-top:8px}
+        .bar{display:grid;grid-template-columns:minmax(70px,28%) 1fr 7ch;align-items:center;gap:12px;font-size:13px;padding:3px 0;border-radius:4px}
+        .bar .lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-2)}
+        .track{height:10px;background:rgba(255,255,255,.04);border-radius:4px;overflow:hidden}
+        .fill{height:100%;background:var(--accent);border-radius:0 4px 4px 0;transform-origin:left;
+            animation:grow-x .7s var(--ease-out) both;animation-delay:calc(var(--i,0) * 22ms + 80ms)}
+        .bar b{text-align:right;font-weight:500;font-variant-numeric:tabular-nums}
+        @media (hover:hover) and (pointer:fine){.bar:hover .lbl{color:var(--text)}.bar:hover .fill{background:#F7D66E}}
 
-        .var-list{display:flex;flex-direction:column;gap:8px}
-        .var-item{border:1px solid var(--line);border-radius:12px;background:var(--bg);overflow:hidden}
-        .var-summary{padding:12px 16px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none}
-        .var-summary:hover{background:var(--soft)}
-        .var-info{display:flex; align-items:center; gap:10px}
-        .var-name{font-weight:600;font-size:14px}
-        .var-type{font-size:10px;padding:2px 6px;background:var(--soft);border-radius:4px;color:var(--mut);text-transform:uppercase}
-        .var-item .chevron{font-size:12px; color:var(--mut); transition: transform 0.2s}
-        .var-item[open] .chevron{transform: rotate(180deg)}
-        .var-details{padding:0 16px 16px; border-top: 1px solid var(--line); background: var(--soft)}
-        .var-stats{display:grid;grid-template-columns:repeat(auto-fit, minmax(80px, 1fr));gap:12px;font-size:12px; padding: 12px 0}
-        .var-stats div{color:var(--mut)}
-        .var-stats b{color:var(--fg);display:block; font-size:14px}
-        .dist-chart{height:120px;display:flex;align-items:flex-end;gap:2px;margin-top:8px}
-        .dist-bar{background:var(--acc);flex:1;min-width:6px;border-radius:3px 3px 0 0;opacity:0.6}
-        .dist-bar:hover{opacity:1}
+        /* analysis metrics */
+        .metrics{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));margin:12px 0 4px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
+        .metric{padding:9px 12px;background:var(--panel);line-height:1.35;min-width:0}
+        .metric i{display:block;font-style:normal;font-size:12px;color:var(--text-3)}
+        .metric b{font-size:14.5px;font-weight:500;overflow-wrap:anywhere}
+        .warn{display:flex;flex-direction:column;gap:4px;margin:14px 0 0;padding:10px 14px;border:1px solid var(--warn-line);background:var(--warn-soft);color:var(--warn);border-radius:var(--r-md);font-size:13px}
+        .warn div{display:flex;gap:8px}
+        .warn svg{flex:none;margin-top:2px}
+        .note{font-size:13px;margin:12px 0 0;color:var(--text-2)}
 
-        .nice-table table{width:100%; border-spacing:0}
-        .nice-table th{background:var(--panel); border-bottom: 2px solid var(--line); padding: 12px; font-weight:700; color:var(--fg); font-size:16px}
-        .nice-table td{padding:14px 12px; font-size:15px; font-weight:500}
-        .nice-table .num{font-family:var(--mono); font-weight:700; color:var(--acc); font-size:15px}
+        /* ---------- dashboard ---------- */
+        .wrap.wide{max-width:1120px}
+        .dash-view{padding:0 0 40px}
+        .dash-view>*{animation:rise .4s var(--ease-out) both;animation-delay:calc(var(--i,0) * 50ms)}
+        .dash-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin:0 0 20px}
+        .dash-head h2{margin:0;font-size:28px;letter-spacing:-.03em;font-weight:600;overflow-wrap:anywhere}
+        .dash-head span{font-size:13px;color:var(--text-3)}
 
-        .corr-matrix{overflow:auto}
-        .corr-matrix table{width:100%;font-size:11px}
-        .corr-cell{width:30px;height:30px;text-align:center;border-radius:4px}
+        /* overview figures: the headline, so no box around them */
+        .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:0 0 24px;margin:0 0 32px;border-bottom:1px solid var(--line)}
+        .kpi{padding:0 24px;border-left:1px solid var(--line);min-width:0}
+        .kpi:first-child{padding-left:0;border-left:0}
+        .kpi i{display:block;font-style:normal;font-size:13px;color:var(--text-2);margin-bottom:4px}
+        .kpi b{display:block;font-size:32px;font-weight:600;letter-spacing:-.03em;line-height:1.1}
 
-        .view-tabs{display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid var(--line);padding-bottom:1px}
-        .tab{padding:8px 16px;cursor:pointer;border-radius:8px 8px 0 0;font-size:14px;color:var(--mut)}
-        .tab.active{background:var(--panel);color:var(--acc);border:1px solid var(--line);border-bottom-color:var(--panel);margin-bottom:-1px}
-        .warn{margin:10px 0 0;padding:9px 13px 9px 14px;border:1px solid var(--warn-line);background:var(--warn-bg);color:var(--warn);border-radius:10px;font-size:13px}
-        .warn div+div{margin-top:3px}
-        .note{font-size:13px;margin:8px 0 0}
+        .dash-sec{margin:0 0 32px}
+        .sec-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 14px}
+        .sec-title h3{margin:0;font-size:15px;font-weight:600;letter-spacing:-.01em}
+        .sec-title p{margin:0;font-size:13px;color:var(--text-3)}
 
-        /* composer */
-        #ask{padding:10px 24px 14px;background:linear-gradient(transparent,var(--bg) 30%)}
-        .composer{max-width:860px;margin:0 auto;display:flex;gap:8px;align-items:center;padding:6px 6px 6px 18px;background:var(--panel);border:1px solid var(--line);border-radius:999px;box-shadow:var(--shadow)}
-        .composer:focus-within{border-color:var(--acc)}
-        #q{flex:1;border:0;background:transparent;padding:8px 0;outline:none;min-width:0}
-        #send{width:38px;height:38px;border:0;border-radius:50%;background:var(--acc);color:var(--acc-fg);display:grid;place-items:center;cursor:pointer;flex:none}
-        #send:disabled{opacity:.45}
-        .disclaimer{max-width:860px;margin:8px auto 0;text-align:center;font-size:12px;color:var(--mut)}
+        /* data quality rings */
+        .rings{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
+        .ring-item{display:flex;align-items:center;gap:16px;min-width:0}
+        .ring{position:relative;width:76px;height:76px;flex:none}
+        .ring svg{display:block;width:100%;height:100%;transform:rotate(-90deg)}
+        .ring circle{fill:none;stroke-width:6}
+        .ring .trk{stroke:rgba(255,255,255,.07)}
+        .ring .arc{stroke:var(--good);stroke-linecap:round;stroke-dasharray:100;animation:ring-in .9s var(--ease-out) both;animation-delay:calc(var(--i,0) * 80ms + 150ms)}
+        @keyframes ring-in{from{stroke-dashoffset:100}}
+        .ring b{position:absolute;inset:0;display:grid;place-items:center;font-size:14px;font-weight:600;letter-spacing:-.01em}
+        .ring-item h4{margin:0;font-size:14.5px;font-weight:600}
+        .ring-item p{margin:2px 0 0;font-size:13px;color:var(--text-3);line-height:1.4}
 
-        @media(max-width:760px){
-            body{grid-template-columns:1fr;grid-template-rows:auto 1fr;height:auto;min-height:100dvh}
-            aside{border-right:0;border-bottom:1px solid var(--line);flex-direction:column;gap:14px;max-height:none;padding:12px 14px}
-            #menu{display:block}
-            aside:not(.open)>:not(.brand){display:none}
-            #log{min-height:60vh;padding:18px 14px}
-            header,#ask{padding-left:14px;padding-right:14px}
-            .bar{grid-template-columns:minmax(60px,34%) 1fr auto}
+        /* relationships: heatmap | strongest pairs, one split panel */
+        .rel{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg)}
+        .rel>section{padding:20px 22px;min-width:0}
+        .rel>section+section{border-left:1px solid var(--line)}
+        .rel h3{margin:0 0 2px;font-size:14.5px;font-weight:600}
+        .rel .lede{margin:0 0 16px;font-size:13px;color:var(--text-3)}
+        .heat-scroll{overflow-x:auto;padding-bottom:4px}
+        .heat{display:grid;gap:2px;width:max-content}
+        .hc{width:var(--cell);height:var(--cell);border-radius:3px;display:grid;place-items:center;font-size:11px;font-variant-numeric:tabular-nums;cursor:default;
+            animation:fade .35s ease-out both;animation-delay:calc(var(--d,0) * 1ms);transition:box-shadow .12s ease}
+        .hc.na{background:repeating-linear-gradient(45deg,transparent 0 3px,rgba(255,255,255,.05) 3px 4px)}
+        .hc.hl,.hc:hover{box-shadow:0 0 0 2px var(--text)}
+        .hr{font-size:12px;color:var(--text-2);padding-right:10px;text-align:right;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;align-self:center}
+        .hcl{writing-mode:vertical-rl;transform:rotate(180deg);font-size:12px;color:var(--text-2);max-height:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;justify-self:center;padding-bottom:8px}
+        .heat-legend{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-3);margin-top:14px;font-variant-numeric:tabular-nums}
+        .heat-legend i{width:140px;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--neg),var(--mid) 50%,var(--pos))}
+        .legend{display:flex;gap:12px;font-size:12px;color:var(--text-2);white-space:nowrap;margin:-6px 0 12px}
+        .legend span{display:inline-flex;align-items:center;gap:6px}
+        .legend span::before{content:"";width:10px;height:6px;border-radius:2px;background:var(--pos)}
+        .legend span.neg::before{background:var(--neg)}
+
+        .corr{display:grid;grid-template-columns:minmax(0,1fr) 96px 7ch;align-items:center;gap:14px;padding:9px 8px;margin:0 -8px;border-radius:var(--r-sm);border-top:1px solid var(--line);font-size:14px;
+            transition:background-color .12s ease}
+        .corr:first-of-type{border-top:0}
+        .corr.hl{background:var(--hover)}
+        .corr .pair{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .corr .pair span{color:var(--text-3);margin:0 6px}
+        .corr b{text-align:right;font-weight:500;font-variant-numeric:tabular-nums}
+        .diverge{position:relative;height:8px;border-radius:4px;background:rgba(255,255,255,.035)}
+        .diverge::before{content:"";position:absolute;left:50%;top:-4px;bottom:-4px;width:1px;background:var(--line-2)}
+        .diverge i{position:absolute;top:0;bottom:0;border-radius:0 4px 4px 0;background:var(--pos);transform-origin:left;
+            animation:grow-x .7s var(--ease-out) both;animation-delay:calc(var(--i,0) * 40ms + 200ms)}
+        .diverge i.neg{background:var(--neg);border-radius:4px 0 0 4px;transform-origin:right}
+
+        /* columns */
+        .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:8px 14px}
+        .var-list{display:flex;flex-direction:column}
+        .var-item{margin:0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent}
+        .var-item:first-child{border-top:0}
+        .var-summary{padding:11px 8px !important;gap:12px !important;border-radius:var(--r-md) !important;font-weight:500 !important}
+        .var-name{font-weight:500;font-size:14px;min-width:3em;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .var-type{font-size:12px;padding:1px 8px;background:var(--raised);border:1px solid var(--line);border-radius:999px;color:var(--text-2);font-weight:400;flex:none}
+        .var-model{font-size:12px;color:var(--text-3);font-weight:400;white-space:nowrap}
+        .spark{display:flex;align-items:flex-end;justify-content:flex-end;gap:1px;height:20px;width:96px;margin-left:auto;flex:none}
+        .spark i{flex:1;max-width:6px;background:var(--accent);opacity:.7;border-radius:1px 1px 0 0;min-height:2px}
+        .var-details{padding:4px 8px 20px !important}
+        .var-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));background:var(--bg);border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
+        .var-stats div{background:var(--bg);padding:9px 12px}
+        .var-stats i{display:block;font-style:normal;font-size:12px;color:var(--text-3)}
+        .var-stats b{font-size:14.5px;font-weight:500;font-variant-numeric:tabular-nums}
+        .dist-chart{height:120px;display:flex;align-items:flex-end;gap:2px;margin-top:16px;border-bottom:1px solid var(--line-2)}
+        .dist-bar{background:var(--accent);flex:1;min-width:3px;border-radius:3px 3px 0 0;transform-origin:bottom;transition:background-color .12s ease}
+        .var-item.first-open .dist-bar{animation:grow-y .55s var(--ease-out) both;animation-delay:calc(var(--i,0) * 12ms + 60ms)}
+        .dist-bar:hover{background:var(--accent-btn-hi)}
+        .dist-axis{display:flex;justify-content:space-between;font-size:12px;color:var(--text-3);margin-top:6px;font-variant-numeric:tabular-nums}
+        .dash-loading{display:flex;align-items:center;gap:10px;color:var(--text-2);font-size:14px;padding:8vh 0}
+        .dash-loading.small{padding:14px 0;font-size:13px}
+
+        /* per-column regression models */
+        .models{margin-top:20px;padding-top:18px;border-top:1px solid var(--line)}
+        .models>*{animation:fade .3s ease-out both}
+        .models-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+        .models-head h4{margin:0;font-size:14px;font-weight:600}
+        .models-head span{font-size:12.5px;color:var(--text-3)}
+        .models-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:28px;align-items:start}
+        .chart-title{font-size:12.5px;color:var(--text-2);margin:0 0 8px}
+        .scatter{margin:0}
+        .scatter svg{display:block;width:100%;height:auto;overflow:visible}
+        .scatter .pt{fill:var(--accent);fill-opacity:.38}
+        .scatter .fit{stroke:var(--text);stroke-width:2;stroke-linecap:round}
+        .scatter .ax{stroke:var(--line-2);stroke-width:1}
+        .scatter text{fill:var(--text-3);font-size:11px;font-family:var(--sans);font-variant-numeric:tabular-nums}
+        .scatter figcaption{font-size:12.5px;color:var(--text-3);margin-top:8px;font-variant-numeric:tabular-nums}
+        .scatter figcaption b{color:var(--text-2);font-weight:500}
+        .mrow{display:grid;grid-template-columns:minmax(70px,34%) 1fr 7ch;align-items:center;gap:12px;font-size:13px;padding:4px 0}
+        .mrow .lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+        .mrow b{text-align:right;font-weight:500;font-variant-numeric:tabular-nums}
+        .mrow .fill{animation:none}
+        .mrow.ns .lbl,.mrow.ns b{color:var(--text-3)}
+        .mrow.ns .fill{opacity:.35}
+        .m-key{font-size:12px;color:var(--text-3);margin:8px 0 0}
+        .forest{font-size:13px}
+        .frow{display:grid;grid-template-columns:minmax(80px,24%) 1fr 9ch 6ch;gap:14px;align-items:center;padding:5px 0}
+        .frow.head{font-size:12px;color:var(--text-3);padding-bottom:2px;white-space:nowrap}
+        .frow.head span:nth-child(n+3),.frow b{text-align:right}
+        .frow .lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .frow b{font-weight:500;font-variant-numeric:tabular-nums}
+        .frow.ns .lbl,.frow.ns b{color:var(--text-3)}
+        .fplot{position:relative;height:16px}
+        .fplot .one{position:absolute;top:-6px;bottom:-6px;width:1px;background:var(--line-2)}
+        .fplot .ci{position:absolute;top:7px;height:2px;border-radius:1px;background:var(--text-2)}
+        .fplot .dot{position:absolute;top:3px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--panel)}
+        .frow.ns .dot{background:var(--text-3)}
+        .faxis{position:relative;height:16px;font-size:11.5px;color:var(--text-3);font-variant-numeric:tabular-nums}
+        .faxis span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+        .models details{margin-top:16px}
+
+        /* ---------- tooltip ---------- */
+        .tip{position:fixed;left:0;top:0;z-index:2000;pointer-events:none;padding:5px 9px;border-radius:6px;background:#2A2F3A;border:1px solid var(--line-2);color:var(--text);
+            font-size:12.5px;line-height:1.35;max-width:260px;white-space:normal;opacity:0;transition:opacity .12s ease;font-variant-numeric:tabular-nums}
+        .tip.show{opacity:1}
+
+        /* ---------- composer ---------- */
+        #ask{padding:8px 28px 14px;transition:opacity .2s ease}
+        .composer{max-width:860px;margin:0 auto;display:flex;gap:8px;align-items:center;padding:6px 6px 6px 18px;background:var(--panel);border:1px solid var(--line-2);border-radius:14px;
+            transition:border-color .15s ease,box-shadow .15s ease}
+        .composer:focus-within{border-color:var(--accent-line);box-shadow:0 0 0 3px var(--accent-soft)}
+        #q{flex:1;border:0;background:transparent;padding:10px 0;outline:none;min-width:0;font-size:15.5px}
+        #q::placeholder{color:var(--text-3)}
+        #send{width:38px;height:38px;border:0;border-radius:10px;background:var(--accent-btn);color:var(--accent-fg);display:grid;place-items:center;cursor:pointer;flex:none;
+            transition:background-color .15s ease,opacity .15s ease,transform .12s var(--ease-out)}
+        @media (hover:hover) and (pointer:fine){#send:hover:not(:disabled){background:var(--accent-btn-hi)}}
+        #send:active:not(:disabled){transform:scale(.94)}
+        #send:disabled{opacity:.35;cursor:default}
+        .disclaimer{max-width:860px;margin:8px auto 0;text-align:center;font-size:12px;color:var(--text-3)}
+
+        /* ---------- modal ---------- */
+        .modal-wrap{position:fixed;inset:0;background:rgba(5,6,9,.66);display:grid;place-items:center;z-index:100;padding:20px;backdrop-filter:blur(4px);
+            animation:fade .2s ease-out both}
+        .modal{background:var(--panel);border:1px solid var(--line-2);border-radius:var(--r-lg);padding:22px;max-width:400px;width:100%;
+            box-shadow:0 24px 64px -24px rgba(0,0,0,.8);animation:pop .22s var(--ease-out) both}
+        @keyframes pop{from{opacity:0;transform:scale(.96) translateY(4px)}}
+        .modal-wrap.closing{animation:fade .15s ease-out reverse both}
+        .modal-wrap.closing .modal{animation:pop .15s ease-out reverse both}
+        .modal h3{margin:0 0 6px;font-size:17px;font-weight:600;letter-spacing:-.015em;overflow-wrap:anywhere}
+        .modal p{margin:0 0 18px;color:var(--text-2);font-size:14px}
+        .modal-btns{display:flex;gap:8px;justify-content:flex-end}
+
+        /* ---------- auth ---------- */
+        .auth-overlay{position:fixed;inset:0;z-index:1000;display:grid;grid-template-columns:1.1fr 1fr;background:var(--bg)}
+        .auth-side{background:var(--side);border-right:1px solid var(--line);padding:44px 56px;display:flex;flex-direction:column;justify-content:space-between;gap:40px;overflow:hidden}
+        .auth-side .brand{padding:0}
+        .auth-side h1{font-size:48px;line-height:1.04;letter-spacing:-.04em;font-weight:600;margin:0 0 16px;max-width:12ch}
+        .auth-side p{color:var(--text-2);font-size:16px;margin:0 0 28px;max-width:42ch}
+        .auth-side pre{max-width:480px;font-size:13px;background:var(--bg)}
+        .auth-proof{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none;font-size:14px;color:var(--text-2)}
+        .auth-proof li{display:flex;align-items:center;gap:10px}
+        .auth-proof svg{color:var(--accent);flex:none}
+        .auth-main{display:grid;place-items:center;padding:24px;overflow:auto}
+        .auth-card{width:100%;max-width:370px}
+        .auth-card h2{margin:0 0 6px;font-size:26px;letter-spacing:-.03em;font-weight:600}
+        .auth-card>p{margin:0 0 28px;color:var(--text-2)}
+        .auth-card form{display:flex;flex-direction:column;gap:16px}
+        .auth-card label{display:block;margin-bottom:6px;font-size:13.5px;font-weight:500;color:var(--text-2)}
+        .auth-card .btn{padding:11px 16px;margin-top:6px;font-size:15px}
+        #cohere-key-group{animation:rise .25s var(--ease-out) both}
+        .verify{display:none;margin-top:16px;font-size:13px;text-align:center;background:var(--panel);border:1px solid var(--line);padding:12px;border-radius:var(--r-md)}
+        .verify a{color:var(--accent);font-weight:600;cursor:pointer}
+        #auth-error{margin-top:16px;font-size:13px;text-align:center}
+        #auth-error.err{color:var(--err)}
+        .auth-footer{margin-top:28px;text-align:center;font-size:14px;color:var(--text-2)}
+        .auth-footer a{color:var(--accent);text-decoration:none;font-weight:600;cursor:pointer}
+        .auth-footer a:hover{text-decoration:underline}
+        .auth-overlay.enter .auth-side>*,.auth-overlay.enter .auth-card{animation:rise .5s var(--ease-out) both}
+        .auth-overlay.enter .auth-side>:nth-child(2){animation-delay:70ms}
+        .auth-overlay.enter .auth-card{animation-delay:140ms}
+
+        .scrim{display:none}
+
+        /* ---------- responsive ---------- */
+        @media(max-width:1080px){
+            .rel{grid-template-columns:minmax(0,1fr)}
+            .rel>section+section{border-left:0;border-top:1px solid var(--line)}
+            .models-grid{grid-template-columns:minmax(0,1fr)}
+        }
+        @media(max-width:960px){
+            .auth-overlay{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+            .auth-side{padding:24px;gap:16px;border-right:0;border-bottom:1px solid var(--line)}
+            .auth-side h1{font-size:30px;margin:0}
+            .auth-side pre,.auth-side p,.auth-proof{display:none}
+            #hint{display:none}
+        }
+        @media(max-width:860px){
+            body{grid-template-columns:minmax(0,1fr)}
+            aside{position:fixed;inset:0 auto 0 0;width:min(86vw,320px);z-index:60;padding-top:max(18px,env(safe-area-inset-top));padding-bottom:max(12px,env(safe-area-inset-bottom));
+                transform:translateX(-100%);visibility:hidden;
+                transition:transform .34s var(--ease-drawer),visibility 0s linear .34s}
+            aside.open{transform:none;visibility:visible;transition:transform .34s var(--ease-drawer),visibility 0s}
+            .scrim{display:block;position:fixed;inset:0;z-index:55;background:rgba(5,6,9,.6);opacity:0;pointer-events:none;transition:opacity .25s ease}
+            body.drawer .scrim{opacity:1;pointer-events:auto}
+            #menu{display:grid;margin-left:-8px}
+            header{padding:8px 14px;gap:10px;padding-top:max(8px,env(safe-area-inset-top))}
+            .scope-meta{display:none}
+            #log{padding:24px 16px}
+            #ask{padding:8px 12px max(12px,env(safe-area-inset-bottom))}
+            #q{font-size:16px}
+        }
+        @media(max-width:640px){
+            #empty{padding-top:4vh}
+            #empty h2{font-size:27px}
+            .chips{grid-template-columns:1fr}
+            .kpis{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:18px}
+            .kpi:nth-child(3){padding-left:0;border-left:0}
+            .kpi b{font-size:24px}
+            .rings{grid-template-columns:minmax(0,1fr);gap:14px}
+            .var-model,.var-summary .spark{display:none}
+            .ring{width:64px;height:64px}
+            .ring b{font-size:12.5px}
+            .rel>section{padding:16px}
+            .frow{grid-template-columns:minmax(64px,28%) 1fr 9ch;gap:10px}
+            .frow>:nth-child(4){display:none}
+            .dash-head span{display:none}
+            .panel{padding:6px 10px}
+            .bar{grid-template-columns:minmax(60px,34%) 1fr 6ch}
+            .corr{grid-template-columns:minmax(0,1fr) 64px 7ch}
+            .msg.bot{grid-template-columns:minmax(0,1fr);gap:0}
+            .bot-mark{display:none}
+            .msg.user span{max-width:88%}
+            .seg .btn{padding:5px 12px}
+            .findings{grid-template-columns:repeat(2,minmax(0,1fr))}
+            .finding b{font-size:20px}
+            #current-user-email{font-size:12.5px}
+        }
+
+        /* Reduced motion: keep fades that explain a change, drop movement. */
+        @media (prefers-reduced-motion:reduce){
+            :root{--rise:0px}
+            html *{scroll-behavior:auto !important}
+            .fill,.diverge i,.var-item.first-open .dist-bar,.ring .arc{animation:none}
+            .hc{animation-delay:0s}
+            .skel i::after{animation:none;display:none}
+            .pulse{animation:none;opacity:.8}
+            .modal,.modal-wrap.closing .modal{animation-name:fade}
+            aside,aside.open{transition-property:visibility}
+            details::details-content{transition:none}
+            .seg-ind,.ds::before{transition:none}
+            .btn:active:not(:disabled),#send:active:not(:disabled),.sugg:active{transform:none}
         }
     </style>
 </head>
 <body>
     <div id="auth-view" class="auth-overlay" style="display:none">
-        <div class="auth-card">
-            <h2 id="auth-title">Welcome back</h2>
-            <p id="auth-desc">Login to access your datasets</p>
-            <form id="auth-form">
-                <div>
-                    <label>Email Address</label>
-                    <input type="email" id="auth-email" class="field" placeholder="you@example.com" required>
-                </div>
-                <div>
-                    <label>Password</label>
-                    <input type="password" id="auth-password" class="field" placeholder="••••••••" required minlength="8">
-                </div>
-                <div id="cohere-key-group" style="display:none">
-                    <label>Cohere API Key</label>
-                    <input type="password" id="auth-cohere-key" class="field" placeholder="Your API key" minlength="10">
-                </div>
-                <button type="submit" class="btn" id="auth-submit">Login</button>
-            </form>
-            <div id="verify-msg" class="mut" style="display:none;margin-top:16px;font-size:13px;text-align:center;background:var(--soft);padding:10px;border-radius:8px">
-                Check your email for a verification link. <br>
-                <a id="verify-now-btn" style="color:var(--acc);font-weight:700;cursor:pointer">Verify Now (Demo)</a>
+        <section class="auth-side">
+            <div class="brand">
+                <span class="logo"><img src="assets/Ai-Data-Analyst-Logo.png" alt=""></span>
+                <div><b>Data Analyst</b><small>Ask your data in plain English</small></div>
             </div>
-            <div id="auth-error" class="err" style="margin-top:16px;font-size:13px;text-align:center"></div>
-            <div class="auth-footer">
-                <span id="auth-toggle-text">Don't have an account?</span>
-                <a id="auth-toggle-btn">Sign up</a>
+            <div>
+                <h1>Questions in, evidence out.</h1>
+                <p>Upload a CSV and ask about it. Every answer comes with the SQL and statistics that produced it.</p>
+                <pre><span class="kw">SELECT</span> education, <span class="kw">ROUND</span>(<span class="kw">AVG</span>(hours_per_week), <span class="sn">1</span>)
+<span class="kw">FROM</span> adult
+<span class="kw">GROUP BY</span> education
+<span class="kw">ORDER BY</span> <span class="sn">2</span> <span class="kw">DESC</span>;</pre>
             </div>
-        </div>
+            <ul class="auth-proof">
+                <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"/></svg>Regression, correlation and group tests, with p-values</li>
+                <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"/></svg>A profile of every column in one dashboard</li>
+                <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"/></svg>The exact SQL behind each answer</li>
+            </ul>
+        </section>
+        <section class="auth-main">
+            <div class="auth-card">
+                <h2 id="auth-title">Welcome back</h2>
+                <p id="auth-desc">Log in to see your datasets</p>
+                <form id="auth-form">
+                    <div>
+                        <label for="auth-email">Email</label>
+                        <input type="email" id="auth-email" class="field" placeholder="you@example.com" autocomplete="email" required>
+                    </div>
+                    <div>
+                        <label for="auth-password">Password</label>
+                        <input type="password" id="auth-password" class="field" placeholder="At least 8 characters" autocomplete="current-password" required minlength="8">
+                    </div>
+                    <div id="cohere-key-group" style="display:none">
+                        <label for="auth-cohere-key">Cohere API key</label>
+                        <input type="password" id="auth-cohere-key" class="field" placeholder="Paste your key" minlength="10" autocomplete="off">
+                    </div>
+                    <button type="submit" class="btn" id="auth-submit">Log in</button>
+                </form>
+                <div id="verify-msg" class="verify mut">
+                    Check your email for a verification link.<br>
+                    <a id="verify-now-btn">Verify now (demo)</a>
+                </div>
+                <div id="auth-error" class="err" aria-live="polite"></div>
+                <div class="auth-footer">
+                    <span id="auth-toggle-text">Don't have an account?</span>
+                    <a id="auth-toggle-btn">Sign up</a>
+                </div>
+            </div>
+        </section>
     </div>
-<aside>
+
+<aside id="sidebar">
     <div class="brand">
         <span class="logo"><img src="assets/Ai-Data-Analyst-Logo.png" alt="Logo"></span>
         <div><b>Data Analyst</b><small>Ask your data in plain English</small></div>
-        <button id="menu" class="btn ghost" type="button" aria-label="Datasets and upload">Datasets</button>
     </div>
 
     <div class="sec" style="display:none">
@@ -265,44 +627,63 @@
     </div>
 
     <div class="sec">
-        <h2>Dataset</h2>
+        <h2>Datasets</h2>
         <div id="datasets"></div>
     </div>
 
     <form id="upload" class="sec">
         <h2>Add data</h2>
         <div class="drop">
-            <input type="file" name="file" accept=".csv,.tsv,.txt,.data" required>
+            <label class="drop-zone" id="drop-zone">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13V4M6 7.5 10 3.5l4 4M3.5 13v2a1.5 1.5 0 0 0 1.5 1.5h10a1.5 1.5 0 0 0 1.5-1.5v-2"/></svg>
+                <b id="drop-label">Choose a CSV or drop it here</b>
+                <small>.csv, .tsv, .txt or .data</small>
+                <input type="file" name="file" accept=".csv,.tsv,.txt,.data" required>
+            </label>
             <input class="field" name="table_name" placeholder="Table name (optional)">
             <label class="check"><input type="checkbox" name="replace" value="true"> Replace if it already exists</label>
-            <button class="btn">Upload CSV</button>
-            <p id="upmsg" class="mut"></p>
+            <button class="btn" id="upload-btn">Upload CSV</button>
+            <p id="upmsg" aria-live="polite"></p>
         </div>
     </form>
 
     <div class="spacer"></div>
-    <button id="reset" class="btn ghost" type="button">New conversation</button>
+    <div class="side-foot">
+        <button id="reset" class="btn ghost" type="button">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3.5v9M3.5 8h9"/></svg>
+            New conversation
+        </button>
+        <div class="user-info">
+            <span class="avatar" id="avatar" aria-hidden="true"></span>
+            <span id="current-user-email"></span>
+            <button id="logout" type="button">Log out</button>
+        </div>
+    </div>
 </aside>
+<div class="scrim" id="scrim"></div>
 
 <main>
     <header>
-        <span class="pill" id="scope">All tables</span>
-        <span class="mut" id="hint">Follow-up questions are remembered</span>
-        <div class="spacer"></div>
-        <div id="view-controls" style="display:none; gap:10px;">
-            <button class="btn ghost" id="btn-chat">Chat</button>
-            <button class="btn ghost" id="btn-dash">Dashboard</button>
+        <button id="menu" class="icon-btn" type="button" aria-label="Datasets and upload" aria-controls="sidebar" aria-expanded="false">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 5h12M3 9h12M3 13h12"/></svg>
+        </button>
+        <div class="scope">
+            <span id="scope">All tables</span>
+            <span class="scope-meta" id="scope-meta"></span>
+            <span id="hint">Follow-up questions are remembered</span>
         </div>
-        <div class="user-info">
-            <span id="current-user-email" class="mut" style="font-size:13px"></span>
-            <button id="logout">Logout</button>
+        <div class="spacer"></div>
+        <div id="view-controls" class="seg" style="display:none">
+            <span class="seg-ind" aria-hidden="true"></span>
+            <button class="btn" id="btn-chat" type="button">Chat</button>
+            <button class="btn ghost" id="btn-dash" type="button">Dashboard</button>
         </div>
     </header>
     <div id="log" aria-live="polite">
         <div class="wrap">
             <div id="empty">
                 <h2>What would you like to know?</h2>
-                <p>Choose a dataset, then ask a question or try one of these.</p>
+                <p id="empty-desc">Pick a dataset on the left, then ask a question or start with one of these.</p>
                 <div class="chips" id="suggestions"></div>
             </div>
             <div id="thread"></div>
@@ -311,8 +692,8 @@
     </div>
     <form id="ask">
         <div class="composer">
-            <input id="q" placeholder="Ask a question about your data…" autocomplete="off">
-            <button id="send" aria-label="Send"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14V4M4.5 8.5 9 4l4.5 4.5"/></svg></button>
+            <input id="q" placeholder="Ask a question about your data…" autocomplete="off" aria-label="Question">
+            <button id="send" aria-label="Send" disabled><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14V4M4.5 8.5 9 4l4.5 4.5"/></svg></button>
         </div>
         <p class="disclaimer">AI can make mistakes. The SQL under each answer shows exactly what was run.</p>
     </form>
@@ -320,7 +701,7 @@
 
 <script>
     const $ = s => document.querySelector(s);
-    const state = { history: [], table: "" };
+    const state = { history: [], table: "", datasets: [], busy: false };
     const SUGGESTIONS = [
         "How many rows are in this table?",
         "Which columns have missing values?",
@@ -330,18 +711,33 @@
 
     function el(tag, attrs = {}, ...kids) {
         const svgTags = ["svg", "circle", "path", "rect", "line", "g", "text", "tspan"];
-        const e = svgTags.includes(tag) 
+        const isSvg = svgTags.includes(tag);
+        const e = isSvg
             ? document.createElementNS("http://www.w3.org/2000/svg", tag)
             : document.createElement(tag);
         for (const [k, v] of Object.entries(attrs)) {
+            if (v == null) continue;
             if (k === "class") e.setAttribute("class", v);
             else if (k === "style") e.style.cssText = v;
-            else if (svgTags.includes(tag) && !["textContent", "innerHTML"].includes(k)) e.setAttribute(k, v);
+            else if (k.startsWith("data-") || k.startsWith("aria-") || k === "role") e.setAttribute(k, v);
+            else if (isSvg && !["textContent", "innerHTML"].includes(k)) e.setAttribute(k, v);
             else e[k] = v;
         }
         for (const kid of kids.flat()) if (kid != null) e.append(kid);
         return e;
     }
+    // Small inline icons, built as DOM so nothing goes through innerHTML.
+    const icon = (d, size = 14, sw = 1.7) => el("svg", { width: size, height: size, viewBox: "0 0 16 16", fill: "none", stroke: "currentColor",
+        "stroke-width": sw, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true" }, [].concat(d).map(p => el("path", { d: p })));
+    const ICONS = {
+        check: "m3.5 8.5 3 3 6-7",
+        arrow: "M3 8h10M9 4l4 4-4 4",
+        warn: ["M8 2.5 14.5 13.5h-13L8 2.5z", "M8 7v3", "M8 12h.01"],
+        table: ["M2.5 3.5h11v9h-11z", "M2.5 7h11", "M6.5 7v5.5"],
+        stat: ["M2.5 13.5h11", "M4.5 11V8", "M8 11V4.5", "M11.5 11V6.5"],
+    };
+    // Stagger children: each child carries its own index, so only it restyles.
+    const stagger = nodes => { [...nodes].forEach((n, i) => n.style?.setProperty("--i", i)); return nodes; };
 
     async function api(path, opts = {}) {
         const headers = { ...(opts.headers || {}) };
@@ -349,10 +745,10 @@
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
         const res = await fetch(path, { ...opts, headers });
-        
+
         if (res.status === 401) {
             logout();
-            throw new Error("Session expired. Please login again.");
+            throw new Error("Your session expired. Log in again to continue.");
         }
 
         const data = await res.json().catch(() => ({}));
@@ -369,8 +765,11 @@
     const cell = v => v === null || v === undefined ? "—" : typeof v === "number" ? fmtNum(v) : typeof v === "object" ? JSON.stringify(v) : String(v);
     const LABELS = { auc: "AUC", aic: "AIC", vif: "VIF", r_squared: "R²", adjusted_r_squared: "Adjusted R²",
         mcfadden_r_squared: "McFadden R²", f_statistic: "F statistic", f_p_value: "F-test p-value",
-        likelihood_ratio_p_value: "Likelihood-ratio p-value", breusch_pagan_p_value: "Breusch-Pagan p-value" };
+        likelihood_ratio_p_value: "Likelihood-ratio p-value", breusch_pagan_p_value: "Breusch-Pagan p-value",
+        cohens_d: "Cohen's d", eta_squared: "Eta squared", welch_t: "Welch's t-test", mann_whitney_u: "Mann-Whitney U",
+        anova_f: "ANOVA F-test", kruskal_wallis: "Kruskal-Wallis" };
     const pretty = k => LABELS[k] || (k = k.replace(/_/g, " ")).charAt(0).toUpperCase() + k.slice(1);
+    const fmtP = p => p < 0.001 ? "< 0.001" : fmtNum(p);
 
     /* ---------- tiny, safe markdown renderer (builds DOM nodes, never innerHTML) ---------- */
     function inline(text) {
@@ -433,113 +832,322 @@
     }
 
     /* ---------- Dashboard Rendering ---------- */
+    const pct = v => +Number(v).toFixed(2) + "%";
+    const MODEL_LABEL = { linear: "Linear model", logistic: "Logistic model" };
+
     function renderDashboard(data) {
         const { overview, quality, variables, correlations } = data;
         const container = el("div", { class: "dash-view" });
 
-        const ring = (val, label) => {
-            const r = 50;
-            const circ = 2 * Math.PI * r;
-            const off = circ - (val / 100) * circ;
-            return el("div", { class: "q-ring-wrap" },
-                el("div", { class: "q-ring" },
-                    el("svg", { viewBox: "0 0 120 120" }, 
-                        el("circle", { class: "q-bg", cx: "60", cy: "60", r: r }),
-                        el("circle", { class: "q-prog", cx: "60", cy: "60", r: r, 
-                            "stroke-dasharray": circ, 
-                            "stroke-dashoffset": off,
-                            "stroke-linecap": "round"
-                        })
-                    ),
-                    el("b", { textContent: Math.round(val) + "%" })
-                ),
-                el("span", { textContent: label })
-            );
-        };
+        container.append(el("div", { class: "dash-head" },
+            el("h2", { textContent: state.table }),
+            el("span", { textContent: "Profile of every column" })));
 
-        const layout = el("div", { class: "dash-layout" });
-        
-        // 1. Top Left: Data Overview
-        layout.append(el("div", { class: "dash-card" },
-            el("h3", { textContent: "Data Overview" }),
-            el("div", { class: "stat-group" },
-                el("div", { class: "stat-item" }, el("i", { textContent: "Observations" }), el("b", { textContent: overview.total_observations.toLocaleString() })),
-                el("div", { class: "stat-item" }, el("i", { textContent: "Variables" }), el("b", { textContent: overview.total_variables })),
-                el("div", { class: "stat-item" }, el("i", { textContent: "Duplicates" }), el("b", { textContent: overview.duplicate_rows.toLocaleString() })),
-                el("div", { class: "stat-item" }, el("i", { textContent: "Missing Cells" }), el("b", { textContent: overview.missing_cells_pct + "%" }))
-            )
-        ));
+        // Overview figures
+        const figure = (value, label) => el("div", { class: "kpi" }, el("i", { textContent: label }), el("b", { textContent: value }));
+        container.append(el("div", { class: "kpis" },
+            figure(overview.total_observations.toLocaleString(), "Rows"),
+            figure(overview.total_variables, "Columns"),
+            figure(overview.duplicate_rows.toLocaleString(), "Duplicate rows"),
+            figure(pct(overview.missing_cells_pct), "Missing cells")));
 
-        // 2. Top Right: Key Relationships
-        const relCard = el("div", { class: "dash-card" },
-            el("h3", { textContent: "Key Relationships (Top Correlations)" })
-        );
-        if (correlations.top_pairs && correlations.top_pairs.length) {
-            relCard.append(el("div", { class: "nice-table scroll" },
-                el("table", {},
-                    el("thead", {}, el("tr", {}, 
-                        el("th", { textContent: "Variable 1" }),
-                        el("th", { textContent: "Variable 2" }),
-                        el("th", { class: "num", textContent: "Correlation" })
-                    )),
-                    el("tbody", {}, correlations.top_pairs.map(p => el("tr", {},
-                        el("td", { textContent: p["Variable 1"] }),
-                        el("td", { textContent: p["Variable 2"] }),
-                        el("td", { class: "num", textContent: fmtNum(p["Correlation"]) })
-                    )))
-                )
-            ));
-        } else {
-            relCard.append(el("p", { class: "mut", textContent: "No significant correlations found." }));
-        }
-        layout.append(relCard);
+        container.append(qualitySection(quality));
+        container.append(relationshipsSection(correlations || {}));
 
-        // 3. Bottom Left: Data Quality
-        layout.append(el("div", { class: "dash-card" },
-            el("h3", { textContent: "Data Quality" }),
-            el("div", { class: "q-grid" },
-                ring(quality.completeness, "Completeness"),
-                ring(quality.uniqueness, "Uniqueness"),
-                ring(quality.validity, "Validity")
-            )
-        ));
+        // Columns, each with stats, distribution and (lazily) regression models
+        container.append(el("section", { class: "dash-sec" },
+            el("div", { class: "sec-title" },
+                el("h3", { textContent: "Columns" }),
+                el("p", { textContent: "Open a column for its summary, distribution and regression models." })),
+            el("div", { class: "panel" }, el("div", { class: "var-list" }, Object.values(variables).map(columnItem)))));
 
-        // 4. Bottom Right: Variables & Distributions
-        layout.append(el("div", { class: "dash-card" },
-            el("h3", { textContent: "Variables & Distributions" }),
-            el("div", { class: "var-list" }, Object.values(variables).map(v => {
-                const distMax = Math.max(...(v.distribution || []).map(d => d.count), 1);
-                return el("details", { class: "var-item" },
-                    el("summary", { class: "var-summary" },
-                        el("div", { class: "var-info" },
-                            el("span", { class: "var-name", textContent: v.name }),
-                            el("span", { class: "var-type", textContent: v.type })
-                        ),
-                        el("span", { class: "chevron", textContent: "▼" })
-                    ),
-                    el("div", { class: "var-details" },
-                        el("div", { class: "var-stats" },
-                            el("div", {}, el("i", { textContent: "Missing" }), el("b", { textContent: v.missing_pct + "%" })),
-                            el("div", {}, el("i", { textContent: "Unique" }), el("b", { textContent: v.n_unique.toLocaleString() })),
-                            v.mean != null ? el("div", {}, el("i", { textContent: "Mean" }), el("b", { textContent: fmtNum(v.mean) })) : null,
-                            v.std != null ? el("div", {}, el("i", { textContent: "Std Dev" }), el("b", { textContent: fmtNum(v.std) })) : null,
-                            v.min != null ? el("div", {}, el("i", { textContent: "Min" }), el("b", { textContent: fmtNum(v.min) })) : null,
-                            v.max != null ? el("div", {}, el("i", { textContent: "Max" }), el("b", { textContent: fmtNum(v.max) })) : null
-                        ),
-                        v.distribution && v.distribution.length ? el("div", { class: "dist-chart" },
-                            v.distribution.map(d => el("div", { 
-                                class: "dist-bar", 
-                                style: `height: ${Math.max(4, (d.count / distMax) * 100)}%`,
-                                title: `${d.label || (fmtNum(d.bin_start) + ' - ' + fmtNum(d.bin_end))}: ${d.count}`
-                            }))
-                        ) : null
-                    )
-                );
-            }))
-        ));
-
-        container.append(layout);
+        stagger(container.children);
         return container;
+    }
+
+    /* data quality: one green progress ring per check */
+    function qualitySection(quality) {
+        const ring = (val, label, desc, i) => {
+            const v = Math.max(0, Math.min(100, Number(val) || 0));
+            return el("div", { class: "ring-item" },
+                el("div", { class: "ring", role: "img", "aria-label": `${label}: ${pct(val)}` },
+                    el("svg", { viewBox: "0 0 76 76", "aria-hidden": "true" },
+                        el("circle", { class: "trk", cx: "38", cy: "38", r: "33" }),
+                        el("circle", { class: "arc", cx: "38", cy: "38", r: "33", pathLength: "100", style: `stroke-dashoffset:${100 - v};--i:${i}` })),
+                    el("b", { textContent: pct(val) })),
+                el("div", {}, el("h4", { textContent: label }), el("p", { textContent: desc })));
+        };
+        return el("section", { class: "dash-sec" },
+            el("div", { class: "sec-title" }, el("h3", { textContent: "Data quality" })),
+            el("div", { class: "rings" },
+                ring(quality.completeness, "Completeness", "Cells that have a value", 0),
+                ring(quality.uniqueness, "Uniqueness", "Rows that aren't exact duplicates", 1),
+                ring(quality.validity, "Validity", "No validation rules are set up yet", 2)));
+    }
+
+    /* relationships: correlation heatmap beside the strongest pairs */
+    function heatColor(r) {
+        const a = Math.round(Math.min(1, Math.abs(r)) * 100);
+        return `color-mix(in oklab, var(${r < 0 ? "--neg" : "--pos"}) ${a}%, var(--mid))`;
+    }
+    const pairKey = (a, b) => [a, b].sort().join("\u0000");
+
+    function heatmap(cols, matrix) {
+        const n = cols.length, k = n - 1;
+        const cell = Math.max(22, Math.min(52, Math.floor(380 / k)));
+        const showValues = cell >= 34;
+        const grid = el("div", { class: "heat", role: "img", "aria-label": "Correlation heatmap",
+            style: `grid-template-columns:auto repeat(${k}, var(--cell));--cell:${cell}px` });
+        // lower triangle: row i (1..n-1) against columns 0..i-1
+        for (let i = 1; i < n; i++) {
+            grid.append(el("div", { class: "hr", textContent: cols[i], title: cols[i] }));
+            for (let j = 0; j < k; j++) {
+                if (j >= i) { grid.append(el("div")); continue; }
+                const r = matrix[cols[j]]?.[cols[i]];
+                const ok = typeof r === "number";
+                grid.append(el("div", {
+                    class: "hc" + (ok ? "" : " na"),
+                    style: (ok ? `background:${heatColor(r)};color:${Math.abs(r) > 0.55 ? "#0b0b0b" : "var(--text)"};` : "") + `--d:${Math.min(300, (i + j) * 18)}`,
+                    "data-tip": `${cols[i]} and ${cols[j]}: ${ok ? "r = " + r.toFixed(2) : "not enough data"}`,
+                    "data-pair": pairKey(cols[i], cols[j]),
+                }, ok && showValues ? r.toFixed(2).replace(/^(-?)0\./, "$1.") : null));
+            }
+        }
+        grid.append(el("div"));
+        for (let j = 0; j < k; j++) grid.append(el("div", { class: "hcl", textContent: cols[j], title: cols[j] }));
+        return grid;
+    }
+
+    function relationshipsSection(correlations) {
+        const matrix = correlations.matrix || {};
+        const cols = correlations.columns || Object.keys(matrix);
+        const pairs = correlations.top_pairs || [];
+        const sec = el("section", { class: "dash-sec" },
+            el("div", { class: "sec-title" },
+                el("h3", { textContent: "Relationships" }),
+                el("p", { textContent: "Pearson correlation between numeric columns" })));
+
+        if (cols.length < 2) {
+            sec.append(el("div", { class: "panel", style: "padding:18px 20px" },
+                el("p", { class: "mut", style: "margin:0", textContent: "Needs at least two numeric columns to compare." })));
+            return sec;
+        }
+
+        const heatSide = el("section", {},
+            el("h3", { textContent: "Correlation matrix" }),
+            el("p", { class: "lede", textContent: "Each cell compares two columns. Hover for the exact value." }),
+            el("div", { class: "heat-scroll" }, heatmap(cols, matrix)),
+            el("div", { class: "heat-legend" }, el("span", { textContent: "−1" }), el("i", { "aria-hidden": "true" }), el("span", { textContent: "+1" })));
+
+        const listSide = el("section", {},
+            el("h3", { textContent: "Strongest pairs" }),
+            el("p", { class: "lede", textContent: "Ranked by the size of the correlation." }),
+            el("div", { class: "legend" }, el("span", { class: "neg", textContent: "Negative" }), el("span", { textContent: "Positive" })));
+        pairs.forEach((p, i) => {
+            const r = Math.max(-1, Math.min(1, Number(p["Correlation"]) || 0));
+            const w = Math.abs(r) * 50;
+            listSide.append(el("div", { class: "corr", "data-pair": pairKey(p["Variable 1"], p["Variable 2"]),
+                    "data-tip": `${p["Variable 1"]} and ${p["Variable 2"]}: r = ${fmtNum(r)}` },
+                el("div", { class: "pair" }, p["Variable 1"], el("span", { textContent: "and" }), p["Variable 2"]),
+                el("div", { class: "diverge", "aria-hidden": "true" },
+                    el("i", { class: r < 0 ? "neg" : "", style: `left:${r < 0 ? 50 - w : 50}%;width:${w}%;--i:${i}` })),
+                el("b", { textContent: r.toFixed(3) })));
+        });
+        if (!pairs.length) listSide.append(el("p", { class: "mut", textContent: "No pair had enough data to compare." }));
+
+        // Hovering a pair lights up its heatmap cell, and the other way round.
+        const panel = el("div", { class: "rel" }, heatSide, listSide);
+        const mark = (key, on) => panel.querySelectorAll(`[data-pair="${CSS.escape(key)}"]`).forEach(n => n.classList.toggle("hl", on));
+        panel.addEventListener("pointerover", ev => { const t = ev.target.closest("[data-pair]"); if (t) mark(t.dataset.pair, true); });
+        panel.addEventListener("pointerout", ev => { const t = ev.target.closest("[data-pair]"); if (t) mark(t.dataset.pair, false); });
+        sec.append(panel);
+        return sec;
+    }
+
+    /* one column row: summary, stats, distribution, models */
+    function columnItem(v) {
+        const dist = v.distribution || [];
+        const distMax = Math.max(...dist.map(d => d.count), 1);
+        const stat = (label, val) => val != null ? el("div", {}, el("i", { textContent: label }), el("b", { textContent: val })) : null;
+        const binLabel = d => d.label ?? (fmtNum(d.bin_start) + " to " + fmtNum(d.bin_end));
+        const first = dist[0], last = dist[dist.length - 1];
+        const numericAxis = first && first.bin_start != null && last.bin_end != null;
+        const models = v.model ? el("div", { class: "models" }) : null;
+
+        const item = el("details", { class: "var-item" },
+            el("summary", { class: "var-summary" },
+                el("span", { class: "var-name", textContent: v.name }),
+                el("span", { class: "var-type", textContent: v.type }),
+                v.model ? el("span", { class: "var-model", textContent: MODEL_LABEL[v.model] }) : null,
+                dist.length ? el("span", { class: "spark", "aria-hidden": "true" },
+                    dist.slice(0, 24).map(d => el("i", { style: `height:${Math.max(8, (d.count / distMax) * 100)}%` }))) : el("span", { class: "spark" })
+            ),
+            el("div", { class: "var-details" },
+                el("div", { class: "var-stats" },
+                    stat("Missing", v.missing_pct + "%"),
+                    stat("Unique", v.n_unique.toLocaleString()),
+                    stat("Mean", v.mean != null ? fmtNum(v.mean) : null),
+                    stat("Median", v.median != null ? fmtNum(v.median) : null),
+                    stat("Std dev", v.std != null ? fmtNum(v.std) : null),
+                    stat("Min", v.min != null ? fmtNum(v.min) : null),
+                    stat("Max", v.max != null ? fmtNum(v.max) : null)
+                ),
+                dist.length ? el("div", { class: "dist-chart", role: "img", "aria-label": `Distribution of ${v.name}` },
+                    dist.map((d, i) => el("div", {
+                        class: "dist-bar",
+                        style: `height:${Math.max(3, (d.count / distMax) * 100)}%;--i:${Math.min(i, 40)}`,
+                        "data-tip": `${binLabel(d)}: ${d.count.toLocaleString()}`
+                    }))
+                ) : null,
+                numericAxis ? el("div", { class: "dist-axis" },
+                    el("span", { textContent: fmtNum(first.bin_start) }), el("span", { textContent: fmtNum(last.bin_end) })) : null,
+                models
+            )
+        );
+
+        // Columns get opened often, so charts animate on the first open only.
+        let opened = false;
+        item.addEventListener("toggle", () => {
+            if (!item.open) return;
+            if (!opened) {
+                opened = true;
+                item.classList.add("first-open");
+                setTimeout(() => item.classList.remove("first-open"), 1200);
+            }
+            if (models) loadModels(models, v.name);
+        });
+        return item;
+    }
+
+    async function loadModels(box, column) {
+        if (box.dataset.state === "loading" || box.dataset.state === "done") return;
+        box.dataset.state = "loading";
+        box.replaceChildren(el("div", { class: "dash-loading small" }, el("span", { class: "pulse" }), el("span", { textContent: "Fitting models…" })));
+        const table = state.table;
+        try {
+            const m = await api(`/datasets/${encodeURIComponent(table)}/variables/${encodeURIComponent(column)}/models`);
+            if (table !== state.table) return;
+            box.replaceChildren(...renderModels(m));
+            box.dataset.state = "done";
+        } catch (e) {
+            box.dataset.state = "";
+            box.replaceChildren(el("p", { class: "err", style: "margin:0;font-size:13px", textContent: e.message }));
+        }
+    }
+
+    /* ---------- per-column regression models ---------- */
+    function modelNotes(m, skipped) {
+        const notes = ["One model per predictor, so each effect is unadjusted for the other columns."];
+        if (m.sample_rows < m.total_rows) notes.push(`Fitted on the first ${m.sample_rows.toLocaleString()} of ${m.total_rows.toLocaleString()} rows.`);
+        const out = [el("p", { class: "note", textContent: notes.join(" ") })];
+        if (skipped?.length) out.push(el("p", { class: "note", textContent: "Not fitted: " + skipped.map(s => `${s.predictor} (${s.reason})`).join("; ") }));
+        return out;
+    }
+    const allModels = rows => rows.length ? el("details", {}, el("summary", { textContent: "All models" }),
+        el("div", { class: "inner" }, dataTable(Object.keys(rows[0]), rows.map(r => Object.values(r))))) : null;
+
+    function renderModels(m) {
+        if (m.linear) return linearModels(m, m.linear);
+        if (m.logistic) return logisticModels(m, m.logistic);
+        return [el("p", { class: "mut", style: "margin:0;font-size:13px", textContent: m.reason || "No model applies to this column." })];
+    }
+
+    function linearModels(m, L) {
+        const rows = L.models;
+        const head = el("div", { class: "models-head" },
+            el("h4", { textContent: "Simple linear regression" }),
+            el("span", { textContent: `Predicting ${L.target} from each numeric column` }));
+        if (!rows.length) return [head, el("p", { class: "mut", textContent: "No predictor could be fitted." }), ...modelNotes(m, L.skipped)];
+
+        const maxR2 = Math.max(...rows.map(r => r["R-squared"] || 0), 1e-9);
+        const bars = el("div", {},
+            el("p", { class: "chart-title", textContent: "Variance explained (R²) by each predictor" }),
+            rows.map(r => el("div", { class: "mrow" + (r["BH Significant"] ? "" : " ns"),
+                    "data-tip": `${r.Predictor}: slope ${fmtNum(r.Slope)} (95% CI ${fmtNum(r["Slope Lower CI"])} to ${fmtNum(r["Slope Upper CI"])}), p ${fmtP(r["P-value"])}` },
+                el("span", { class: "lbl", textContent: r.Predictor }),
+                el("div", { class: "track" }, el("div", { class: "fill", style: `width:${(r["R-squared"] || 0) / maxR2 * 100}%` })),
+                el("b", { textContent: fmtNum(+(r["R-squared"] || 0).toPrecision(2)) }))),
+            el("p", { class: "m-key", textContent: "Faded rows are not significant after Benjamini-Hochberg correction." }));
+
+        return [head,
+            el("div", { class: "models-grid" }, L.best ? scatterPlot(L.best, L.target) : el("div"), bars),
+            L.best?.warnings?.length ? el("div", { class: "warn", role: "note" }, L.best.warnings.map(w => el("div", {}, icon(ICONS.warn, 14), el("span", { textContent: w })))) : null,
+            ...modelNotes(m, L.skipped),
+            allModels(rows)].filter(Boolean);
+    }
+
+    function scatterPlot(b, target) {
+        const W = 340, H = 210, P = { l: 44, r: 8, t: 8, b: 26 };
+        const xs = b.points.map(p => p[0]), ys = b.points.map(p => p[1]);
+        const line = [b.x_min, b.x_max].map(x => [x, b.intercept + b.slope * x]);
+        const x0 = Math.min(...xs, b.x_min), x1 = Math.max(...xs, b.x_max);
+        const y0 = Math.min(...ys, ...line.map(p => p[1])), y1 = Math.max(...ys, ...line.map(p => p[1]));
+        const sx = x => P.l + (x - x0) / ((x1 - x0) || 1) * (W - P.l - P.r);
+        const sy = y => H - P.b - (y - y0) / ((y1 - y0) || 1) * (H - P.t - P.b);
+        const f = n => +n.toFixed(1);
+        const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `Scatter plot of ${target} against ${b.predictor} with fitted line` },
+            el("line", { class: "ax", x1: P.l, y1: H - P.b, x2: W - P.r, y2: H - P.b }),
+            el("line", { class: "ax", x1: P.l, y1: P.t, x2: P.l, y2: H - P.b }),
+            b.points.map(([x, y]) => el("circle", { class: "pt", cx: f(sx(x)), cy: f(sy(y)), r: "2.6" })),
+            el("line", { class: "fit", x1: f(sx(line[0][0])), y1: f(sy(line[0][1])), x2: f(sx(line[1][0])), y2: f(sy(line[1][1])) }),
+            el("text", { x: P.l, y: H - 8, textContent: fmtNum(x0) }),
+            el("text", { x: W - P.r, y: H - 8, "text-anchor": "end", textContent: fmtNum(x1) }),
+            el("text", { x: (P.l + W - P.r) / 2, y: H - 8, "text-anchor": "middle", textContent: b.predictor }),
+            el("text", { x: P.l - 6, y: H - P.b, "text-anchor": "end", textContent: fmtNum(y0) }),
+            el("text", { x: P.l - 6, y: P.t + 8, "text-anchor": "end", textContent: fmtNum(y1) }));
+        const sign = b.slope < 0 ? "−" : "+";
+        return el("figure", { class: "scatter" },
+            el("p", { class: "chart-title", textContent: `${target} against ${b.predictor}, the strongest predictor` }),
+            svg,
+            el("figcaption", {}, el("b", { textContent: `${target} = ${fmtNum(b.intercept)} ${sign} ${fmtNum(Math.abs(b.slope))} × ${b.predictor}` }),
+                `, R² ${fmtNum(b.r_squared)}. Up to 300 sampled points.`));
+    }
+
+    // Round-number ticks for a log axis: 1 always, then 2/5/10 steps, thinned to fit.
+    function logTicks(lo, hi) {
+        const steps = [];
+        for (let e = -3; e <= 4; e++) for (const m of [1, 2, 5]) steps.push(+(m * 10 ** e).toPrecision(1));
+        let ticks = steps.filter(t => t >= lo && t <= hi);
+        while (ticks.length > 5) ticks = ticks.filter((t, i) => t === 1 || i % 2 === 0);
+        return ticks.filter((t, i, a) => i === 0 || Math.log(t / a[i - 1]) / Math.log(hi / lo) > 0.12);
+    }
+
+    function logisticModels(m, G) {
+        const rows = G.models;
+        const head = el("div", { class: "models-head" },
+            el("h4", { textContent: "Simple logistic regression" }),
+            el("span", { textContent: `Predicting ${G.target} = “${G.event}”, which is ${pct(G.event_rate * 100)} of rows` }));
+        if (!rows.length) return [head, el("p", { class: "mut", textContent: "No predictor could be fitted." }), ...modelNotes(m, G.skipped)];
+
+        const finite = v => typeof v === "number" && v > 0 && isFinite(v);
+        const ends = rows.flatMap(r => [r["OR Lower CI"], r["OR Upper CI"], r["Odds Ratio per SD"]]).filter(finite);
+        let L0 = Math.log(Math.min(1, ...ends)), L1 = Math.log(Math.max(1, ...ends));
+        const pad = (L1 - L0) * 0.06 || 0.1; L0 -= pad; L1 += pad;
+        const pos = v => ((Math.log(v) - L0) / (L1 - L0)) * 100;
+
+        const forest = el("div", { class: "forest", role: "img", "aria-label": "Odds ratios with 95% confidence intervals" },
+            el("div", { class: "frow head" }, el("span", { textContent: "Predictor" }), el("span", { textContent: "Odds ratio per SD, log scale" }),
+                el("span", { textContent: "Odds ratio" }), el("span", { textContent: "AUC" })),
+            rows.map(r => {
+                const or = r["Odds Ratio per SD"], lo = r["OR Lower CI"], hi = r["OR Upper CI"];
+                return el("div", { class: "frow" + (r["BH Significant"] ? "" : " ns"),
+                        "data-tip": `${r.Predictor}: odds ratio ${fmtNum(or)} per SD (95% CI ${cell(lo)} to ${cell(hi)}), p ${fmtP(r["P-value"])}, AUC ${fmtNum(r.AUC)}` },
+                    el("span", { class: "lbl", textContent: r.Predictor }),
+                    el("div", { class: "fplot" },
+                        el("i", { class: "one", style: `left:${pos(1)}%` }),
+                        finite(lo) && finite(hi) ? el("i", { class: "ci", style: `left:${pos(lo)}%;width:${pos(hi) - pos(lo)}%` }) : null,
+                        finite(or) ? el("i", { class: "dot", style: `left:${pos(or)}%` }) : null),
+                    el("b", { textContent: finite(or) ? fmtNum(+or.toPrecision(3)) : "—" }),
+                    el("b", { textContent: r.AUC.toFixed(3) }));
+            }),
+            el("div", { class: "frow" }, el("span"),
+                el("div", { class: "faxis" }, logTicks(Math.exp(L0), Math.exp(L1)).map(t => el("span", { style: `left:${pos(t)}%`, textContent: fmtNum(t) }))),
+                el("span"), el("span")));
+
+        return [head, forest,
+            el("p", { class: "m-key", textContent: "Right of 1 means higher odds of the outcome as the predictor rises by one standard deviation. Faded rows are not significant after Benjamini-Hochberg correction." }),
+            ...modelNotes(m, G.skipped),
+            allModels(rows)];
     }
 
     /* ---------- SQL highlighting ---------- */
@@ -556,14 +1164,32 @@
         frag.append(sql.slice(last));
         return frag;
     }
-    const sqlBlock = sql => el("pre", {}, highlightSql(sql));
+    function sqlBlock(sql) {
+        if (!sql) return null;
+        const btn = el("button", { class: "copy", type: "button", textContent: "Copy" });
+        btn.onclick = async () => {
+            try { await navigator.clipboard.writeText(sql); btn.textContent = "Copied"; btn.classList.add("done"); }
+            catch { btn.textContent = "Copy failed"; }
+            clearTimeout(btn._t);
+            btn._t = setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("done"); }, 1600);
+        };
+        return el("div", { class: "code" }, el("pre", {}, highlightSql(sql)), btn);
+    }
 
     /* ---------- data table + bar chart ---------- */
+    const isPCol = c => /p[\s_-]?value/i.test(String(c));
+    const isSigCol = c => /significant/i.test(String(c));
     function dataTable(cols, rows) {
         const isNum = i => rows.length && rows.every(r => r[i] === null || typeof r[i] === "number");
+        const td = (v, i) => {
+            const c = cols[i];
+            if (typeof v === "boolean" && isSigCol(c)) return el("td", {}, el("span", { class: v ? "yes" : "no", textContent: v ? "Yes" : "No" }));
+            const sig = isPCol(c) && typeof v === "number" && v < 0.05;
+            return el("td", { class: [isNum(i) ? "num" : "", sig ? "sig" : ""].join(" ").trim(), textContent: cell(v) });
+        };
         const t = el("table", {},
             el("thead", {}, el("tr", {}, cols.map((c, i) => el("th", { class: isNum(i) ? "num" : "", textContent: c })))),
-            el("tbody", {}, rows.slice(0, 50).map(r => el("tr", {}, r.map((v, i) => el("td", { class: isNum(i) ? "num" : "", textContent: cell(v) }))))));
+            el("tbody", {}, rows.slice(0, 50).map(r => el("tr", {}, r.map(td)))));
         return el("div", { class: "scroll" }, t);
     }
 
@@ -575,13 +1201,14 @@
         if (vi < 1) return null;
         const max = Math.max(...rows.map(r => r[vi]));
         if (rows.some(r => r[vi] < 0) || max <= 0) return null;
-        const box = el("div", {}, el("div", { class: "sub", textContent: pretty(cols[vi]) }));
-        for (const r of rows) {
-            box.append(el("div", { class: "bar" },
-                el("span", { class: "lbl", title: r.slice(0, vi).join(" / "), textContent: r.slice(0, vi).join(" / ") }),
-                el("div", { class: "track" }, el("div", { class: "fill", style: `width:${(r[vi] / max) * 100}%` })),
+        const box = el("div", { class: "bars", role: "img", "aria-label": `Bar chart of ${pretty(cols[vi])}` }, el("div", { class: "sub", textContent: pretty(cols[vi]) }));
+        rows.forEach((r, i) => {
+            const label = r.slice(0, vi).join(" / ");
+            box.append(el("div", { class: "bar", "data-tip": `${label}: ${fmtNum(r[vi])}` },
+                el("span", { class: "lbl", textContent: label }),
+                el("div", { class: "track" }, el("div", { class: "fill", style: `width:${(r[vi] / max) * 100}%;--i:${i}` })),
                 el("b", { textContent: fmtNum(r[vi]) })));
-        }
+        });
         return box;
     }
 
@@ -594,99 +1221,176 @@
     const metric = (label, v) => el("div", { class: "metric" }, el("i", { textContent: label }), el("b", { textContent: cell(v) }));
     const isObj = v => v && typeof v === "object" && !Array.isArray(v);
 
+    // Headline numbers pulled from a result. Presentation only: values are shown exactly as computed.
+    const FIT_KEYS = ["r_squared", "adjusted_r_squared", "mcfadden_r_squared", "auc", "accuracy"];
+    const P_KEYS = ["f_p_value", "likelihood_ratio_p_value"];
+    function keyFindings(res) {
+        const out = [], used = new Set();
+        const sigPill = p => p < 0.05
+            ? el("span", { class: "pill good" }, icon(ICONS.check, 12, 2), "Significant at 5%")
+            : el("span", { class: "pill" }, "Not significant");
+        const tile = (label, value, extra) => el("div", { class: "finding" }, el("span", { textContent: label }), el("b", { textContent: value }), extra);
+
+        for (const k of FIT_KEYS) if (typeof res[k] === "number") { out.push(tile(pretty(k), fmtNum(res[k]))); used.add(k); }
+        for (const k of P_KEYS) if (typeof res[k] === "number") { out.push(tile(pretty(k), fmtP(res[k]), sigPill(res[k]))); used.add(k); }
+        if (isObj(res.tests)) for (const [name, t] of Object.entries(res.tests))
+            if (isObj(t) && typeof t.p_value === "number")
+                out.push(tile(`${pretty(name)} p-value`, fmtP(t.p_value), sigPill(t.p_value)));
+        if (isObj(res.effect_size) && typeof res.effect_size.value === "number") {
+            const es = res.effect_size;
+            out.push(tile(pretty(es.name || "effect_size"), fmtNum(es.value),
+                es.magnitude ? el("em", { textContent: `${es.magnitude.charAt(0).toUpperCase() + es.magnitude.slice(1)} effect` }) : null));
+        }
+        // Tables with a multiple-testing "Significant" column (correlations, categorical tests).
+        for (const key of ["pairs", "results"]) {
+            const rows = res[key];
+            if (!Array.isArray(rows) || !rows.length || !isObj(rows[0])) continue;
+            const sigCol = Object.keys(rows[0]).find(isSigCol);
+            if (!sigCol) continue;
+            const n = rows.filter(r => r[sigCol] === true).length;
+            out.push(tile(key === "pairs" ? "Significant pairs" : "Significant features", `${n} of ${rows.length}`,
+                el("em", { textContent: `${sigCol.replace(/\s*Significant$/i, "")} corrected`.trim() })));
+        }
+        return { node: out.length ? el("div", { class: "findings" }, stagger(out)) : null, used };
+    }
+
     function analysisNode(a) {
-        const res = a.result, metrics = el("div", { class: "metrics" }), tables = [];
+        const res = a.result, metrics = el("div", { class: "metrics" }), tables = [], longText = [];
+        const { node: findings, used } = keyFindings(res);
         for (const [k, v] of Object.entries(res)) {
-            if (["sql", "note", "warnings"].includes(k)) continue;
-            if (v === null || ["number", "string", "boolean"].includes(typeof v)) metrics.append(metric(pretty(k), v));
+            if (["sql", "note", "warnings"].includes(k) || used.has(k)) continue;
+            if (typeof v === "string" && (v.length > 80 || v.includes("\n"))) longText.push([k, v]);
+            else if (v === null || ["number", "string", "boolean"].includes(typeof v)) metrics.append(metric(pretty(k), v));
             else if (Array.isArray(v) && v.length && isObj(v[0])) tables.push([k, v]);
             else if (isObj(v)) {
                 const vals = Object.values(v);
                 if (vals.length && vals.every(isObj)) tables.push([k, Object.entries(v).map(([name, o]) => ({ name, ...o }))]);
-                else for (const [k2, v2] of Object.entries(v)) if (typeof v2 !== "object") metrics.append(metric(`${pretty(k)} · ${k2}`, v2));
+                else for (const [k2, v2] of Object.entries(v)) if (typeof v2 !== "object") metrics.append(metric(`${pretty(k)}, ${k2}`, v2));
             }
         }
-        const body = [metrics.children.length ? metrics : null];
+        const body = [findings, metrics.children.length ? metrics : null];
         for (const [k, rows] of tables) {
             const cols = Object.keys(rows[0]);
             body.push(el("div", { class: "sub", textContent: pretty(k) }), dataTable(cols, rows.map(r => cols.map(c => r[c] ?? null))));
         }
-        if (res.warnings?.length) body.push(el("div", { class: "warn" }, res.warnings.map(w => el("div", { textContent: "⚠ " + w }))));
-        if (res.note) body.push(el("p", { class: "note mut", textContent: res.note }));
+        if (res.warnings?.length) body.push(el("div", { class: "warn", role: "note" }, res.warnings.map(w => el("div", {}, icon(ICONS.warn, 14), el("span", { textContent: w })))));
+        if (res.note) body.push(el("p", { class: "note", textContent: res.note }));
         body.push(el("details", {}, el("summary", { textContent: "SQL and raw output" }),
-            el("div", { class: "inner" }, sqlBlock(res.sql), el("pre", { textContent: JSON.stringify(res, null, 2) }))));
-        return el("details", { open: true }, el("summary", { textContent: "Analysis · " + (TOOL_TITLES[a.tool] || a.tool) }), el("div", { class: "inner" }, body));
+            el("div", { class: "inner" }, sqlBlock(res.sql),
+                longText.map(([k, v]) => [el("div", { class: "sub", textContent: pretty(k) }), el("pre", { class: "raw-json", textContent: v })]),
+                el("pre", { class: "raw-json", textContent: JSON.stringify(res, null, 2) }))));
+        const n = res.observations ?? res.rows_analyzed;
+        return el("details", { open: true, class: "analysis" },
+            el("summary", {}, el("span", { class: "kind" }, icon(ICONS.stat, 13)), TOOL_TITLES[a.tool] || a.tool,
+                typeof n === "number" ? el("span", { class: "cnt", textContent: `${n.toLocaleString()} observations` }) : null),
+            el("div", { class: "inner" }, body));
     }
 
     /* ---------- answer card ---------- */
     function renderAnswer(r) {
         const card = el("div", { class: "card" }, answerNode(r.answer || "(no answer)"));
-        r.queries.forEach((q, i) => card.append(el("details", { open: i === 0 },
-            el("summary", { textContent: `SQL and data · ${q.row_count} row${q.row_count === 1 ? "" : "s"}${q.truncated ? " (truncated)" : ""}` }),
-            el("div", { class: "inner" }, sqlBlock(q.sql), dataTable(q.columns, q.rows), chart(q.columns, q.rows)))));
         r.analyses.forEach(a => card.append(analysisNode(a)));
+        r.queries.forEach((q, i) => card.append(el("details", { open: i === 0 && !r.analyses.length },
+            el("summary", {}, el("span", { class: "kind" }, icon(ICONS.table, 13)), "Query",
+                el("span", { class: "cnt", textContent: `${q.row_count.toLocaleString()} row${q.row_count === 1 ? "" : "s"}${q.truncated ? ", truncated" : ""}` })),
+            el("div", { class: "inner" }, chart(q.columns, q.rows), dataTable(q.columns, q.rows), sqlBlock(q.sql)))));
         card.append(el("div", { class: "foot", textContent: `${r.api_calls} AI call${r.api_calls === 1 ? "" : "s"}` }));
+        stagger(card.children);
         return card;
     }
 
     /* ---------- chat plumbing ---------- */
     function scrollDown() { $("#log").scrollTop = $("#log").scrollHeight; }
     function setEmpty(show) { $("#empty").hidden = !show; }
+    const botHead = () => [el("div", { class: "bot-mark", "aria-hidden": "true" }, el("img", { src: "assets/Ai-Data-Analyst-Logo.png", alt: "" })),
+        el("div", { class: "bot-body" }, el("div", { class: "bot-name", textContent: "Analyst" }))];
 
     function addUser(text) {
         $("#thread").append(el("div", { class: "msg user" }, el("span", { textContent: text })));
         scrollDown();
     }
     function addPending() {
-        const m = el("div", { class: "msg bot" }, el("div", { class: "card" }, el("span", { class: "dots" }, el("span"), el("span"), el("span"))));
+        const elapsed = el("span", { class: "elapsed" });
+        const [mark, body] = botHead();
+        body.append(el("div", { class: "card", "aria-busy": "true" },
+            el("div", { class: "thinking" }, el("span", { class: "pulse" }), el("span", { textContent: "Analyzing your question" }), elapsed),
+            el("div", { class: "skel", "aria-hidden": "true" }, el("i"), el("i"), el("i"))));
+        const m = el("div", { class: "msg bot" }, mark, body);
+        const started = Date.now();
+        m._timer = setInterval(() => { const s = Math.round((Date.now() - started) / 1000); if (s >= 2) elapsed.textContent = `${s}s`; }, 1000);
         $("#thread").append(m);
         scrollDown();
         return m;
     }
+    function settle(pending, card) {
+        clearInterval(pending._timer);
+        const [mark, body] = botHead();
+        body.append(card);
+        pending.replaceChildren(mark, body);
+        pending.style.animation = "none";
+    }
+
+    function syncSend() { $("#send").disabled = state.busy || !$("#q").value.trim(); }
 
     async function ask(question) {
         question = question.trim();
-        if (!question) return;
+        if (!question || state.busy) return;
         setEmpty(false);
         addUser(question);
         const pending = addPending();
-        $("#send").disabled = true;
+        state.busy = true; syncSend();
         try {
             const r = await api("/ask", { method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ question, table: state.table || null, history: state.history }) });
             state.history = [...state.history, r.turn].slice(-6);
-            pending.replaceChildren(renderAnswer(r));
+            settle(pending, renderAnswer(r));
         } catch (e) {
-            pending.replaceChildren(el("div", { class: "card err", textContent: e.message }));
+            settle(pending, el("div", { class: "card err", textContent: e.message }));
         }
-        $("#send").disabled = false;
+        state.busy = false; syncSend();
         pending.scrollIntoView({ block: "start" });
         $("#q").focus();
     }
 
+    function replay(node) { node.classList.remove("view-in"); void node.offsetWidth; node.classList.add("view-in"); }
+
     function updateScope() {
         $("#scope").textContent = state.table || "All tables";
-        $("#view-controls").style.display = state.table ? "flex" : "none";
+        const meta = $("#scope-meta");
+        const d = state.datasets.find(x => x.table_name === state.table);
+        meta.replaceChildren(...(d
+            ? [el("span", { textContent: `${d.row_count.toLocaleString()} rows` }), el("span", { textContent: `${d.columns.length} columns` })]
+            : state.datasets.length ? [el("span", { textContent: `${state.datasets.length} dataset${state.datasets.length === 1 ? "" : "s"}` })] : []));
+        $("#empty-desc").textContent = state.table
+            ? `Ask anything about ${state.table}. Each answer shows the SQL and statistics behind it.`
+            : "Pick a dataset on the left, then ask a question or start with one of these.";
+        $("#view-controls").style.display = state.table ? "grid" : "none";
         if (!state.table) showChat();
         else if ($("#dashboard").style.display === "block") showDashboard();
     }
 
     async function showDashboard() {
         if (!state.table) return;
+        const wasHidden = $("#dashboard").style.display !== "block";
         $("#btn-chat").classList.add("ghost");
         $("#btn-dash").classList.remove("ghost");
         $("#thread").style.display = "none";
         $("#empty").style.display = "none";
         $("#dashboard").style.display = "block";
+        $(".wrap").classList.add("wide");
         $("#ask").style.visibility = "hidden"; // Hide chat input
-        
+        if (wasHidden) replay($("#dashboard"));
+
         // Show loading state if it's not already showing data
-        if (!$("#dashboard").children.length || $("#dashboard").querySelector(".mut")) {
-            $("#dashboard").replaceChildren(el("p", { class: "mut", textContent: "Loading dashboard stats…" }));
+        if (!$("#dashboard").children.length || $("#dashboard").querySelector(".dash-loading") || $("#dashboard").dataset.table !== state.table) {
+            $("#dashboard").replaceChildren(el("div", { class: "dash-loading" }, el("span", { class: "pulse" }), el("span", { class: "mut", textContent: "Profiling columns…" })));
         }
-        
+
+        const table = state.table;
         try {
-            const data = await api(`/datasets/${state.table}/dashboard`);
+            const data = await api(`/datasets/${table}/dashboard`);
+            if (table !== state.table) return; // the user switched datasets while this loaded
+            $("#dashboard").dataset.table = table;
             $("#dashboard").replaceChildren(renderDashboard(data));
         } catch (e) {
             $("#dashboard").replaceChildren(el("div", { class: "card err", textContent: e.message }));
@@ -694,12 +1398,16 @@
     }
 
     function showChat() {
+        const wasHidden = $("#thread").style.display === "none";
         $("#btn-chat").classList.remove("ghost");
         $("#btn-dash").classList.add("ghost");
         $("#thread").style.display = "block";
+        $("#empty").style.display = "";
         $("#dashboard").style.display = "none";
+        $(".wrap").classList.remove("wide");
         $("#ask").style.visibility = "visible";
         setEmpty(!state.history.length && !$("#thread").children.length);
+        if (wasHidden) { replay($("#thread")); replay($("#empty")); }
     }
 
     $("#btn-chat").onclick = showChat;
@@ -707,106 +1415,115 @@
 
     function datasetOption(value, title, meta) {
         const input = el("input", { type: "radio", name: "table", value, checked: state.table === value,
-            onchange: () => { state.table = value; state.history = []; updateScope(); } });
+            onchange: () => { state.table = value; state.history = []; updateScope(); closeDrawer(); } });
         const label = el("label", { class: "ds" }, input, el("span", {}, el("b", { textContent: title }), el("small", { textContent: meta })));
-        
+
         if (value) {
             const actions = el("div", { class: "ds-actions" });
-            const ren = el("button", { 
-                class: "ren-ds", 
-                type: "button", 
+            const ren = el("button", {
+                class: "ren-ds",
+                type: "button",
                 title: "Rename table",
-                onclick: (ev) => { 
-                    ev.preventDefault(); 
-                    ev.stopPropagation(); 
-                    promptRename(value); 
+                "aria-label": `Rename ${value}`,
+                onclick: (ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    promptRename(value);
                 }
-            }, el("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" }, 
+            }, el("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" },
                 el("path", { d: "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" }),
                 el("path", { d: "M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" })
             ));
-            const del = el("button", { 
-                class: "del-ds", 
-                type: "button", 
+            const del = el("button", {
+                class: "del-ds",
+                type: "button",
                 title: "Delete table",
-                onclick: (ev) => { 
-                    ev.preventDefault(); 
-                    ev.stopPropagation(); 
-                    confirmDelete(value); 
+                "aria-label": `Delete ${value}`,
+                onclick: (ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    confirmDelete(value);
                 }
-            }, el("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" }, 
+            }, el("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" },
                 el("path", { d: "M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" })
             ));
             actions.append(ren, del);
             label.append(actions);
         }
-        
+
         return label;
     }
 
-    function promptRename(oldName) {
-        const input = el("input", { class: "field", value: oldName, style: "margin-bottom:16px", autocomplete: "off" });
-        const modal = el("div", { class: "modal-wrap" },
-            el("div", { class: "modal" },
-                el("h3", { textContent: "Rename Table" }),
-                el("p", { textContent: "Enter a new name for this table:" }),
-                input,
-                el("div", { class: "modal-btns" },
-                    el("button", { class: "btn ghost", textContent: "Cancel", onclick: () => modal.remove() }),
-                    el("button", { class: "btn", textContent: "Rename", onclick: () => doRename(oldName, input.value.trim(), modal) })
-                )
-            )
-        );
+    /* ---------- modals ---------- */
+    function openModal(...content) {
+        const modal = el("div", { class: "modal-wrap" }, el("div", { class: "modal", role: "dialog", "aria-modal": "true" }, content));
+        modal.addEventListener("mousedown", ev => { if (ev.target === modal) closeModal(modal); });
+        modal.addEventListener("keydown", ev => { if (ev.key === "Escape") closeModal(modal); });
         document.body.append(modal);
+        return modal;
+    }
+    function closeModal(modal) {
+        if (!modal.isConnected || modal.classList.contains("closing")) return;
+        modal.classList.add("closing");
+        const done = () => modal.remove();
+        modal.addEventListener("animationend", e => { if (e.target === modal) done(); });
+        setTimeout(done, 220); // fallback when animations are off
+    }
+
+    function promptRename(oldName) {
+        const input = el("input", { class: "field", value: oldName, style: "margin-bottom:16px", autocomplete: "off", "aria-label": "New table name" });
+        const modal = openModal(
+            el("h3", { textContent: "Rename table" }),
+            el("p", { textContent: "Letters, numbers and underscores work best." }),
+            input,
+            el("div", { class: "modal-btns" },
+                el("button", { class: "btn ghost", textContent: "Cancel", onclick: () => closeModal(modal) }),
+                el("button", { class: "btn", textContent: "Rename", onclick: () => doRename(oldName, input.value.trim(), modal) })
+            ));
         input.focus();
         input.select();
         input.onkeydown = ev => { if (ev.key === "Enter") doRename(oldName, input.value.trim(), modal); };
     }
 
     async function doRename(oldName, newName, modal) {
-        if (!newName || oldName === newName) { modal.remove(); return; }
+        if (!newName || oldName === newName) { closeModal(modal); return; }
         try {
-            await api(`/datasets/${oldName}`, { 
-                method: "PATCH", 
+            await api(`/datasets/${oldName}`, {
+                method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ new_name: newName }) 
+                body: JSON.stringify({ new_name: newName })
             });
-            modal.remove();
-            if (state.table === oldName) {
-                state.table = newName;
-                updateScope();
-            }
-            await loadDatasets();
+            closeModal(modal);
+            if (state.table === oldName) state.table = newName;
+            await loadDatasets(); // re-syncs the header and view
         } catch (e) {
             alert("Failed to rename: " + e.message);
         }
     }
 
     function confirmDelete(tableName) {
-        const modal = el("div", { class: "modal-wrap" },
-            el("div", { class: "modal" },
-                el("h3", { textContent: "Delete Table" }),
-                el("p", { textContent: `Are you sure you want to delete this table?` }),
-                el("div", { class: "modal-btns" },
-                    el("button", { class: "btn ghost", textContent: "Cancel", onclick: () => modal.remove() }),
-                    el("button", { class: "btn", style: "background:var(--err);color:#fff", textContent: "Delete", onclick: () => doDelete(tableName, modal) })
-                )
-            )
-        );
-        document.body.append(modal);
+        let modal;
+        const cancel = el("button", { class: "btn ghost", textContent: "Cancel", onclick: () => closeModal(modal) });
+        modal = openModal(
+            el("h3", { textContent: `Delete ${tableName}?` }),
+            el("p", { textContent: "The table and its data are removed for good. This can't be undone." }),
+            el("div", { class: "modal-btns" },
+                cancel,
+                el("button", { class: "btn danger", textContent: "Delete", onclick: () => doDelete(tableName, modal) })
+            ));
+        cancel.focus();
     }
 
     async function doDelete(tableName, modal) {
         try {
             await api(`/datasets/${tableName}`, { method: "DELETE" });
-            modal.remove();
+            closeModal(modal);
             if (state.table === tableName) {
                 state.table = "";
                 state.history = [];
-                updateScope();
                 resetConversation();
             }
-            await loadDatasets();
+            await loadDatasets(); // re-syncs the header and view
         } catch (e) {
             alert("Failed to delete: " + e.message);
         }
@@ -814,20 +1531,25 @@
 
     async function loadDatasets() {
         const box = $("#datasets");
-        box.replaceChildren();
+        if (!box.children.length) box.replaceChildren(el("div", { class: "ds-skel" }), el("div", { class: "ds-skel" }));
         try {
             const list = await api("/datasets");
+            state.datasets = list;
+            box.replaceChildren();
             if (!list.length) { box.append(el("p", { class: "mut", textContent: "No datasets yet. Upload a CSV below." })); return; }
             box.append(datasetOption("", "All tables", `${list.length} dataset${list.length === 1 ? "" : "s"}`));
-            for (const d of list) box.append(datasetOption(d.table_name, d.table_name, `${d.row_count.toLocaleString()} rows · ${d.columns.length} columns`));
-        } catch (e) { box.append(el("p", { class: "err", textContent: e.message })); }
+            for (const d of list) box.append(datasetOption(d.table_name, d.table_name, `${d.row_count.toLocaleString()} rows, ${d.columns.length} columns`));
+        } catch (e) { box.replaceChildren(el("p", { class: "err", textContent: e.message })); }
+        finally { updateScope(); }
     }
 
     /* ---------- Authentication ---------- */
     let authMode = "login";
 
     function showAuth() {
-        $("#auth-view").style.display = "grid";
+        const view = $("#auth-view");
+        view.style.display = "grid";
+        view.classList.remove("enter"); void view.offsetWidth; view.classList.add("enter");
         $("#auth-error").textContent = "";
         updateAuthUI();
     }
@@ -835,20 +1557,22 @@
     function updateAuthUI() {
         if (authMode === "login") {
             $("#auth-title").textContent = "Welcome back";
-            $("#auth-desc").textContent = "Login to access your datasets";
-            $("#auth-submit").textContent = "Login";
+            $("#auth-desc").textContent = "Log in to see your datasets";
+            $("#auth-submit").textContent = "Log in";
             $("#auth-toggle-text").textContent = "Don't have an account?";
             $("#auth-toggle-btn").textContent = "Sign up";
             $("#cohere-key-group").style.display = "none";
             $("#auth-cohere-key").required = false;
+            $("#auth-password").autocomplete = "current-password";
         } else {
             $("#auth-title").textContent = "Create an account";
-            $("#auth-desc").textContent = "Start analyzing your data today";
+            $("#auth-desc").textContent = "You'll need a Cohere API key to ask questions.";
             $("#auth-submit").textContent = "Sign up";
             $("#auth-toggle-text").textContent = "Already have an account?";
-            $("#auth-toggle-btn").textContent = "Login";
+            $("#auth-toggle-btn").textContent = "Log in";
             $("#cohere-key-group").style.display = "block";
             $("#auth-cohere-key").required = true;
+            $("#auth-password").autocomplete = "new-password";
         }
     }
 
@@ -864,8 +1588,10 @@
         const password = $("#auth-password").value;
         const cohere_api_key = $("#auth-cohere-key").value;
         const error = $("#auth-error");
+        const submit = $("#auth-submit");
         error.textContent = "";
         $("#verify-msg").style.display = "none";
+        submit.disabled = true;
 
         try {
             if (authMode === "register") {
@@ -899,6 +1625,8 @@
             if (e.message.includes("verified")) {
                 $("#verify-msg").style.display = "block";
             }
+        } finally {
+            submit.disabled = false;
         }
     };
 
@@ -907,7 +1635,7 @@
         try {
             await api(`/auth/verify?email=${encodeURIComponent(email)}`, { method: "POST" });
             $("#auth-error").className = "mut";
-            $("#auth-error").textContent = "Email verified! You can now login.";
+            $("#auth-error").textContent = "Email verified. You can log in now.";
             $("#verify-msg").style.display = "none";
             authMode = "login";
             updateAuthUI();
@@ -921,11 +1649,15 @@
         state.history = [];
         $("#thread").replaceChildren();
         setEmpty(true);
+        replay($("#empty"));
     }
 
     function onAuthenticated() {
         $("#auth-view").style.display = "none";
-        $("#current-user-email").textContent = localStorage.getItem("email");
+        const email = localStorage.getItem("email") || "";
+        $("#current-user-email").textContent = email;
+        $("#current-user-email").title = email;
+        $("#avatar").textContent = email.charAt(0).toUpperCase();
         loadDatasets();
     }
 
@@ -933,7 +1665,13 @@
         localStorage.removeItem("token");
         localStorage.removeItem("email");
         state.table = "";
+        state.datasets = [];
+        $("#datasets").replaceChildren();
+        $("#dashboard").replaceChildren();
+        delete $("#dashboard").dataset.table;
         resetConversation();
+        updateScope();
+        closeDrawer();
         showAuth();
     }
 
@@ -947,29 +1685,56 @@
         }
     }
 
-    $("#ask").onsubmit = ev => { ev.preventDefault(); const q = $("#q").value; $("#q").value = ""; ask(q); };
+    $("#ask").onsubmit = ev => { ev.preventDefault(); const q = $("#q").value; $("#q").value = ""; syncSend(); ask(q); };
+    $("#q").addEventListener("input", syncSend);
+
+    /* ---------- upload ---------- */
+    const fileInput = $("#upload input[type=file]");
+    const dropZone = $("#drop-zone");
+    function showFileName() {
+        const f = fileInput.files[0];
+        $("#drop-label").textContent = f ? f.name : "Choose a CSV or drop it here";
+        dropZone.classList.toggle("has-file", !!f);
+    }
+    fileInput.addEventListener("change", showFileName);
+    ["dragenter", "dragover"].forEach(t => dropZone.addEventListener(t, () => dropZone.classList.add("over")));
+    ["dragleave", "drop"].forEach(t => dropZone.addEventListener(t, () => dropZone.classList.remove("over")));
 
     $("#upload").onsubmit = async ev => {
         ev.preventDefault();
         const msg = $("#upmsg");
+        const btn = $("#upload-btn");
         msg.className = "mut";
         msg.textContent = "Uploading…";
+        btn.disabled = true;
         try {
             const r = await api("/datasets", { method: "POST", body: new FormData(ev.target) });
             msg.textContent = `Loaded ${r.rows.toLocaleString()} rows into "${r.table}".`;
             ev.target.reset();
-            await loadDatasets();
-            
+            showFileName();
+
             // Automatically switch to the new dataset and show dashboard
             state.table = r.table;
             state.history = [];
-            updateScope();
-            showDashboard();
+            $("#dashboard").style.display = "block"; // so the re-sync below opens the dashboard once
+            await loadDatasets();
+            closeDrawer();
         } catch (e) { msg.className = "err"; msg.textContent = e.message; }
+        finally { btn.disabled = false; }
     };
 
-    $("#reset").onclick = resetConversation;
-    $("#menu").onclick = () => $("aside").classList.toggle("open");
+    /* ---------- mobile drawer ---------- */
+    function setDrawer(open) {
+        $("aside").classList.toggle("open", open);
+        document.body.classList.toggle("drawer", open);
+        $("#menu").setAttribute("aria-expanded", String(open));
+    }
+    function closeDrawer() { setDrawer(false); }
+    $("#menu").onclick = () => setDrawer(!$("aside").classList.contains("open"));
+    $("#scrim").onclick = closeDrawer;
+    document.addEventListener("keydown", ev => { if (ev.key === "Escape" && $("aside").classList.contains("open")) closeDrawer(); });
+
+    $("#reset").onclick = () => { resetConversation(); closeDrawer(); };
     $("#user").onchange = () => {
         localStorage.setItem("uid", $("#user").value.trim());
         state.table = "";
@@ -978,7 +1743,26 @@
         loadDatasets();
     };
 
-    for (const text of SUGGESTIONS) $("#suggestions").append(el("button", { class: "sugg", type: "button", textContent: text, onclick: () => ask(text) }));
+    /* ---------- chart tooltip (mouse only; touch keeps the visible labels) ---------- */
+    const tip = el("div", { class: "tip", role: "tooltip" });
+    document.body.append(tip);
+    let tipFor = null;
+    document.addEventListener("pointerover", ev => {
+        const t = ev.pointerType === "mouse" ? ev.target.closest?.("[data-tip]") : null;
+        if (t === tipFor) return;
+        tipFor = t;
+        if (!t) { tip.classList.remove("show"); return; }
+        tip.textContent = t.dataset.tip;
+        const r = t.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+        const x = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2));
+        const y = r.top - h - 8 < 8 ? r.bottom + 8 : r.top - h - 8;
+        tip.style.transform = `translate(${Math.round(x)}px,${Math.round(y)}px)`;
+        tip.classList.add("show");
+    });
+    document.getElementById("log").addEventListener("scroll", () => { tipFor = null; tip.classList.remove("show"); }, { passive: true });
+
+    for (const text of SUGGESTIONS) $("#suggestions").append(el("button", { class: "sugg", type: "button", onclick: () => ask(text) },
+        el("span", { textContent: text }), el("span", { class: "spacer" }), icon(ICONS.arrow, 14)));
     checkAuth();
 </script>
 </body>

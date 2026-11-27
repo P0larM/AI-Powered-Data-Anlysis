@@ -3,6 +3,60 @@ import numpy as np
 from app.data.profiler import profile_dataset
 from app.statistical_analysis.correlation import analyze_correlations
 from app.database.queries import run_user_query
+from app.statistical_analysis.simple_regression import (
+    simple_linear_regressions,
+    simple_logistic_regressions,
+)
+
+# Rows sampled for dashboard statistics. run_user_query caps rows at 1,000 by
+# default, so the cap is passed explicitly to match each query's LIMIT.
+SAMPLE_ROWS = 10_000
+HISTOGRAM_ROWS = 5_000
+NUMERIC_TYPES = ("continuous", "discrete")
+
+
+def _quote(name):
+    """Quote an identifier for the SQL we build ourselves."""
+    return '"' + str(name).replace('"', '""') + '"'
+
+
+def _json_safe(value):
+    """NaN/inf become None so the response is valid JSON."""
+    if isinstance(value, dict):
+        return {str(k): _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, pd.DataFrame):
+        return _json_safe(value.to_dict(orient="records"))
+    if isinstance(value, (np.bool_, bool)):
+        return bool(value)
+    if isinstance(value, (np.integer,)):
+        return int(value)
+    if isinstance(value, (float, np.floating)):
+        return float(value) if np.isfinite(value) else None
+    return value
+
+
+def model_predictors(profile, exclude=None):
+    """Numeric, non-ID, non-weight columns usable as regression predictors."""
+    return [name for name, info in profile["columns"].items()
+            if info["type"] in NUMERIC_TYPES and not info["is_weight"] and name != exclude]
+
+
+def model_kind(profile, column):
+    """
+    Which per-variable model applies to a column as the outcome:
+    "linear" for numeric columns, "logistic" for two-level columns, else None.
+    IDs, weights, constants and free text never get a model.
+    """
+    info = profile["columns"][column]
+    if info["is_weight"] or not model_predictors(profile, exclude=column):
+        return None
+    if info["type"] in NUMERIC_TYPES:
+        return "linear"
+    if info["type"] == "categorical" and info["n_unique"] == 2:
+        return "logistic"
+    return None
 
 def get_dashboard_data(conn, user_id, table_name, profile):
     """
@@ -41,6 +95,7 @@ def get_dashboard_data(conn, user_id, table_name, profile):
             "type": col_info["type"],
             "missing_pct": col_info["null_pct"],
             "n_unique": col_info["n_unique"],
+            "model": model_kind(profile, col_name),
         }
         
         # Add basic stats for numeric types
@@ -69,12 +124,13 @@ def get_dashboard_data(conn, user_id, table_name, profile):
         # Fetch numeric data from DB (limited to avoid OOM for very large datasets)
         data_query = f"SELECT {', '.join([f'\"{c}\"' for c in numeric_cols])} FROM \"{table_name}\" LIMIT 10000"
         try:
-            res = run_user_query(conn, user_id, data_query, [table_name])
+            res = run_user_query(conn, user_id, data_query, [table_name], max_rows=SAMPLE_ROWS)
             df_numeric = pd.DataFrame(res["rows"], columns=res["columns"])
             corr_res = analyze_correlations(df_numeric, method="pearson", columns=numeric_cols)
             correlations = {
-                "matrix": corr_res["matrix"].to_dict(),
-                "top_pairs": corr_res["pairs"].head(10).to_dict(orient="records")
+                "columns": list(corr_res["matrix"].columns),
+                "matrix": _json_safe(corr_res["matrix"].to_dict()),
+                "top_pairs": _json_safe(corr_res["pairs"].head(10).to_dict(orient="records"))
             }
         except Exception:
             correlations = {"error": "Could not calculate correlations"}
@@ -100,7 +156,7 @@ def _fetch_distribution(conn, user_id, table_name, col_name, col_info):
         # For simplicity and robustness, let's fetch a sample
         query = f"SELECT \"{col_name}\" FROM \"{table_name}\" WHERE \"{col_name}\" IS NOT NULL LIMIT 5000"
         try:
-            res = run_user_query(conn, user_id, query, [table_name])
+            res = run_user_query(conn, user_id, query, [table_name], max_rows=HISTOGRAM_ROWS)
             vals = [r[0] for r in res["rows"]]
             if not vals:
                 return []
@@ -122,3 +178,36 @@ def _fetch_distribution(conn, user_id, table_name, col_name, col_info):
             return [{"label": str(r[0]), "count": int(r[1])} for r in res["rows"]]
         except Exception:
             return []
+
+
+def get_variable_models(conn, user_id, table_name, profile, column):
+    """
+    Simple regressions with `column` as the outcome, one model per predictor.
+
+    Numeric columns get one-predictor linear regressions; two-level columns get
+    one-predictor logistic regressions. Fitted on up to SAMPLE_ROWS rows.
+    """
+    if column not in profile["columns"]:
+        raise KeyError(column)
+    kind = model_kind(profile, column)
+    result = {"column": column, "kind": kind, "total_rows": profile["rows"],
+              "linear": None, "logistic": None}
+    if kind is None:
+        result["reason"] = "Regression needs a numeric or two-level column and at least one numeric predictor."
+        return result
+
+    predictors = model_predictors(profile, exclude=column)
+    query = f"SELECT {', '.join(_quote(c) for c in [column, *predictors])} FROM {_quote(table_name)} LIMIT {SAMPLE_ROWS}"
+    res = run_user_query(conn, user_id, query, [table_name], max_rows=SAMPLE_ROWS)
+    df = pd.DataFrame(res["rows"], columns=res["columns"])
+    for name in predictors:
+        df[name] = pd.to_numeric(df[name], errors="coerce")
+    result["sample_rows"] = int(len(df))
+
+    if kind == "linear":
+        df[column] = pd.to_numeric(df[column], errors="coerce")
+        result["linear"] = simple_linear_regressions(df, column, predictors)
+    else:
+        result["logistic"] = simple_logistic_regressions(df, column, predictors)
+        result["logistic"]["event"] = str(result["logistic"]["event"])
+    return _json_safe(result)
